@@ -83,7 +83,7 @@ export default function Navbar() {
             ))}
 
             <a
-              href={GOOGLE_FORM_URL}
+              href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=publish-editor"
               target="_blank"
               rel="noreferrer"
               className="rounded-xl bg-gradient-to-r from-violet-600 to-pink-500 px-5 py-3 text-center font-bold text-white"
