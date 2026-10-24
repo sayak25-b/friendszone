@@ -174,7 +174,7 @@ export default function Members() {
               >
                 <div className="relative m-3 mb-0 h-64 overflow-hidden rounded-[1.3rem] bg-gradient-to-br from-violet-100 to-pink-100">
                   <img
-                    src={apiAssetUrl(member.imageUrl)}
+                   src={member.imageUrl}
                     alt={member.name}
                     loading="lazy"
                     className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
