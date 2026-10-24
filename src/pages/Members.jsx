@@ -76,7 +76,7 @@ export default function Members() {
           <div className="relative mx-auto h-[340px] w-full max-w-lg sm:h-[430px]">
             <div className="absolute left-[8%] top-[12%] h-[65%] w-[48%] rotate-[-9deg] overflow-hidden rounded-[2rem] border-[6px] border-white/90 shadow-2xl">
               <img
-                src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=700&q=85"
+                src="/images/friendszone-gathering2.jpg"
                 alt="Friends sharing a moment"
                 className="h-full w-full object-cover"
               />
@@ -84,7 +84,7 @@ export default function Members() {
 
             <div className="absolute right-[6%] top-[5%] h-[57%] w-[43%] rotate-[8deg] overflow-hidden rounded-[2rem] border-[6px] border-white/90 shadow-2xl">
               <img
-                src="https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=700&q=85"
+                src="/images/friendszone-friends1.jpg"
                 alt="Friends spending time together"
                 className="h-full w-full object-cover"
               />
@@ -92,7 +92,7 @@ export default function Members() {
 
             <div className="absolute bottom-[4%] left-[27%] h-[48%] w-[49%] rotate-[3deg] overflow-hidden rounded-[2rem] border-[6px] border-white/90 shadow-2xl">
               <img
-                src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=700&q=85"
+                src="/images/friendszone-gathering.jpg"
                 alt="A friendship gathering"
                 className="h-full w-full object-cover"
               />
