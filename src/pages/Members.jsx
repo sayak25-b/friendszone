@@ -173,12 +173,12 @@ export default function Members() {
                 className="group relative overflow-hidden rounded-[1.75rem] border border-violet-100/80 bg-white transition duration-300 hover:-translate-y-1.5 hover:border-violet-200 hover:shadow-[0_24px_60px_-25px_rgba(124,58,237,0.28)]"
               >
                 <div className="relative m-3 mb-0 h-64 overflow-hidden rounded-[1.3rem] bg-gradient-to-br from-violet-100 to-pink-100">
-                  <img
-                    src={apiAssetUrl(member.imageUrl)}
-                    alt={member.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
-                  />
+  <img
+    src={apiAssetUrl(member.imageUrl)}
+    alt={member.name}
+    loading="lazy"
+    className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+  />
 
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-transparent" />
 
