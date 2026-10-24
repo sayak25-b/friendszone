@@ -2,6 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import { GridFSBucket, ObjectId } from "mongodb";
 import multer from "multer";
+import cloudinary from "../config/cloudinary.js";
 import Memory from "../models/Memory.js";
 import Member from "../models/Member.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -122,27 +123,43 @@ router.post("/admin/uploads", (req, res, next) => {
     if (error) return next(error);
     if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
 
-    try {
-      const bucket = getImageBucket();
-      const imageId = new ObjectId();
-      const imageStream = bucket.openUploadStreamWithId(
-        imageId,
-        req.file.originalname,
-        {
-          contentType: req.file.mimetype,
-          metadata: { contentType: req.file.mimetype },
-        }
-      );
+    if (
+      !process.env.CLOUDINARY_CLOUD_NAME ||
+      !process.env.CLOUDINARY_API_KEY ||
+      !process.env.CLOUDINARY_API_SECRET
+    ) {
+      return res.status(503).json({
+        error: "Image uploads are not configured. Set the Cloudinary credentials on the backend.",
+      });
+    }
 
-      await new Promise((resolve, reject) => {
-        imageStream.once("error", reject);
-        imageStream.once("finish", resolve);
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const imageStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "friendszone",
+            resource_type: "image",
+            allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
+          },
+          (uploadError, uploadedImage) => {
+            if (uploadError) return reject(uploadError);
+            return resolve(uploadedImage);
+          }
+        );
         imageStream.end(req.file.buffer);
       });
 
-      return res.status(201).json({ imageUrl: `/api/media/${imageId.toString()}` });
+      if (!result?.secure_url) {
+        return next(new Error("Cloudinary did not return a secure image URL."));
+      }
+
+      return res.status(201).json({ imageUrl: result.secure_url });
     } catch (uploadError) {
-      return next(uploadError);
+      console.error("Cloudinary image upload failed:", uploadError);
+      return res.status(502).json({
+        error:
+          "Cloudinary could not save this image. Check the Cloudinary credentials configured on the backend.",
+      });
     }
   });
 });
