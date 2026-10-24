@@ -504,6 +504,10 @@ export default function Admin() {
                 <span className="mb-2 block text-sm font-bold text-slate-700">
                   Upload an image (JPEG, PNG, WebP, GIF; max 5 MB)
                 </span>
+                <span className="mb-2 block text-xs leading-5 text-slate-500">
+                  Choose a file from your device. After its preview appears, save
+                  the record to keep the image with this {isMemory ? "memory" : "member"}.
+                </span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/gif"

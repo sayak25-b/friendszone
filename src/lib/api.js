@@ -37,7 +37,7 @@ export async function apiRequest(path, options = {}) {
 }
 
 export function apiAssetUrl(url) {
-  if (!url || !url.startsWith("/uploads/")) return url;
+  if (!url || !url.startsWith("/api/media/")) return url;
   return `${API_BASE_URL.replace(/\/api$/, "")}${url}`;
 }
 
