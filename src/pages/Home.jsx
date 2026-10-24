@@ -188,7 +188,7 @@ export default function Home() {
             <div className="absolute -inset-4 rotate-3 rounded-[2rem] bg-gradient-to-br from-violet-200 to-pink-200" />
             <div className="relative overflow-hidden rounded-[2rem] border-8 border-white shadow-2xl">
               <img
-                src="./images/friendszone-hero.jpg"
+                src="/images/friendszone-hero.jpg"
                 alt="Friends spending time together"
                 className="h-[340px] w-full object-cover sm:h-[450px]"
               />
