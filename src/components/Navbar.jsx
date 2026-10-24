@@ -49,9 +49,9 @@ export default function Navbar() {
           ))}
 
           <a
-            href={GOOGLE_FORM_URL}
+            href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=sharing&ouid=109454753256403050906"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="rounded-full bg-gradient-to-r from-violet-600 to-pink-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-xl"
           >
             Join FriendsZone
@@ -85,7 +85,7 @@ export default function Navbar() {
             <a
               href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=sharing&ouid=109454753256403050906"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="rounded-xl bg-gradient-to-r from-violet-600 to-pink-500 px-5 py-3 text-center font-bold text-white"
             >
               Register Now
