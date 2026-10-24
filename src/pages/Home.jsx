@@ -159,9 +159,9 @@ export default function Home() {
 
             <div className="mt-8 flex flex-wrap gap-4">
               <a
-                href={GOOGLE_FORM_URL}
+                href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=dialog"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-pink-500 px-7 py-4 font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-1"
               >
                 Join Our Circle <ArrowRight size={19} />
@@ -228,9 +228,9 @@ export default function Home() {
             to our community page.
           </p>
           <a
-            href={GOOGLE_FORM_URL}
+            href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=dialog"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 font-extrabold text-violet-700 transition hover:bg-pink-50"
           >
             Register to Join <ArrowRight size={19} />

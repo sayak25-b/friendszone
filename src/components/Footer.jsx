@@ -36,9 +36,9 @@ export default function Footer() {
             our registration form.
           </p>
           <a
-            href={GOOGLE_FORM_URL}
+            href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=dialog"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="mt-4 inline-block rounded-full bg-pink-500 px-5 py-3 text-sm font-bold text-white hover:bg-pink-400"
           >
             Register Now
