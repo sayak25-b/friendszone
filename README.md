@@ -70,14 +70,15 @@ an active/hidden status. Member email is returned only by admin endpoints.
 
 The admin dashboard accepts a direct image URL or an uploaded JPEG, PNG, WebP,
 or GIF up to 5 MB. Uploaded images are sent from the frontend to the Express API
-and stored in MongoDB GridFS, so they do not depend on Render's temporary local
-disk. MongoDB Atlas stores the image bytes with the app's other database data.
+and stored in Cloudinary. Configure `CLOUDINARY_CLOUD_NAME`,
+`CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` in the backend's environment
+settings. Do not expose the API secret in the frontend or commit it.
 
 ## API
 
 - `GET /api/health`
 - `GET /api/memories` and `GET /api/members` (public, published/active records)
-- `GET /api/media/:id` (public GridFS image stream)
+- `GET /api/media/:id` (legacy public GridFS image stream)
 - `POST /api/auth/login`
 - Admin Bearer-token routes: `/api/admin/memories`,
   `/api/admin/members`, and `/api/admin/uploads`
