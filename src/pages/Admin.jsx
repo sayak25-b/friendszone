@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Images, LogOut, Plus, Save, Trash2, Users } from "lucide-react";
-import { apiRequest } from "../lib/api";
+import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
 
 const TOKEN_KEY = "friendszone-admin-token";
@@ -420,7 +420,7 @@ export default function Admin() {
                     className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
                   >
                     <img
-                      src={item.imageUrl}
+                      src={apiAssetUrl(item.imageUrl)}
                       alt=""
                       className="h-16 w-16 shrink-0 rounded-xl bg-violet-100 object-cover"
                     />
@@ -502,7 +502,7 @@ export default function Admin() {
               />
               <label className="block">
                 <span className="mb-2 block text-sm font-bold text-slate-700">
-                  Or upload an image (JPEG, PNG, WebP, GIF; max 5 MB)
+                  Upload an image (JPEG, PNG, WebP, GIF; max 5 MB)
                 </span>
                 <input
                   type="file"
@@ -512,6 +512,13 @@ export default function Admin() {
                   className="w-full rounded-xl border border-violet-100 bg-white px-4 py-3 text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-violet-100 file:px-4 file:py-2 file:font-bold file:text-violet-700"
                 />
                 {uploading && <span className="mt-2 block text-xs text-violet-600">Uploading image…</span>}
+                {form.imageUrl && (
+                  <img
+                    src={apiAssetUrl(form.imageUrl)}
+                    alt="Selected image preview"
+                    className="mt-3 h-32 w-32 rounded-xl border border-violet-100 bg-violet-50 object-cover"
+                  />
+                )}
               </label>
 
               {isMemory ? (

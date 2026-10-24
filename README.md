@@ -68,10 +68,13 @@ featured flag, and published/draft status. Members include name, role, city,
 bio, image, join date, private contact email, Instagram and website links, and
 an active/hidden status. Member email is returned only by admin endpoints.
 
-The admin dashboard accepts an image URL or an uploaded JPEG, PNG, WebP, or GIF
-up to 5 MB. Local uploads are stored in `backend\uploads`; use persistent storage
-or an object-storage provider for production deployments where local disks are
-ephemeral.
+The admin dashboard accepts a direct image URL or an uploaded JPEG, PNG, WebP,
+or GIF up to 5 MB. For Render production, configure `CLOUDINARY_CLOUD_NAME`,
+`CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` in the backend's environment
+settings. New uploads are then stored in Cloudinary and remain available after
+restarts or redeployments. Production uploads return an explicit error if
+Cloudinary is not configured. Local development can continue saving files under
+`backend\uploads`.
 
 ## API
 

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import { BACKEND_ROOT } from "../config/loadEnv.js";
 import Memory from "../models/Memory.js";
 import Member from "../models/Member.js";
@@ -10,6 +11,27 @@ import { requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 const uploadDirectory = path.join(BACKEND_ROOT, "uploads");
+const cloudinaryCredentials = [
+  process.env.CLOUDINARY_CLOUD_NAME,
+  process.env.CLOUDINARY_API_KEY,
+  process.env.CLOUDINARY_API_SECRET,
+];
+const cloudinaryConfigured = cloudinaryCredentials.every(Boolean);
+
+if (cloudinaryCredentials.some(Boolean) && !cloudinaryConfigured) {
+  throw new Error(
+    "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET together."
+  );
+}
+
+if (cloudinaryConfigured) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+}
 const memoryFields = [
   "title",
   "description",
@@ -52,25 +74,27 @@ function recordInput(body, fields) {
 }
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: async (req, file, callback) => {
-      try {
-        await fs.mkdir(uploadDirectory, { recursive: true });
-        callback(null, uploadDirectory);
-      } catch (error) {
-        callback(error);
-      }
-    },
-    filename: (req, file, callback) => {
-      const extension = allowedImageTypes.get(file.mimetype);
-      if (!extension) {
-        const error = new Error("Only image files are allowed.");
-        error.status = 400;
-        return callback(error);
-      }
-      return callback(null, `${randomUUID()}${extension}`);
-    },
-  }),
+  storage: cloudinaryConfigured
+    ? multer.memoryStorage()
+    : multer.diskStorage({
+        destination: async (req, file, callback) => {
+          try {
+            await fs.mkdir(uploadDirectory, { recursive: true });
+            callback(null, uploadDirectory);
+          } catch (error) {
+            callback(error);
+          }
+        },
+        filename: (req, file, callback) => {
+          const extension = allowedImageTypes.get(file.mimetype);
+          if (!extension) {
+            const error = new Error("Only image files are allowed.");
+            error.status = 400;
+            return callback(error);
+          }
+          return callback(null, `${randomUUID()}${extension}`);
+        },
+      }),
   fileFilter: (req, file, callback) => {
     if (!allowedImageTypes.has(file.mimetype)) {
       const error = new Error("Upload a JPEG, PNG, WebP, or GIF image.");
@@ -108,9 +132,38 @@ router.get("/members", async (req, res, next) => {
 router.use("/admin", requireAdmin);
 
 router.post("/admin/uploads", (req, res, next) => {
-  upload.single("image")(req, res, (error) => {
+  if (process.env.NODE_ENV === "production" && !cloudinaryConfigured) {
+    return res.status(503).json({
+      error:
+        "Persistent image storage is not configured. Add the Cloudinary credentials to the backend environment.",
+    });
+  }
+
+  upload.single("image")(req, res, async (error) => {
     if (error) return next(error);
     if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
+
+    if (cloudinaryConfigured) {
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const imageUpload = cloudinary.uploader.upload_stream(
+            { folder: "friendszone", resource_type: "image" },
+            (uploadError, uploadedImage) => {
+              if (uploadError) return reject(uploadError);
+              return resolve(uploadedImage);
+            }
+          );
+          imageUpload.end(req.file.buffer);
+        });
+        if (!result?.secure_url) {
+          return next(new Error("Cloudinary did not return a secure image URL."));
+        }
+        return res.status(201).json({ imageUrl: result.secure_url });
+      } catch (uploadError) {
+        return next(uploadError);
+      }
+    }
+
     const serverUrl = (process.env.PUBLIC_SERVER_URL || "").replace(/\/$/, "");
     return res.status(201).json({
       imageUrl: `${serverUrl}/uploads/${req.file.filename}`,
