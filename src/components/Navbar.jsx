@@ -83,7 +83,7 @@ export default function Navbar() {
             ))}
 
             <a
-              href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=publish-editor"
+              href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=sharing&ouid=109454753256403050906"
               target="_blank"
               rel="noreferrer"
               className="rounded-xl bg-gradient-to-r from-violet-600 to-pink-500 px-5 py-3 text-center font-bold text-white"
