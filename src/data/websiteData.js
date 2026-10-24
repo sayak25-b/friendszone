@@ -66,21 +66,21 @@ export const events = [
   {
     id: 2,
     title: "A Day Out Together",
-    date: "2026-09-20",
+    date: "2026-09-16",
     location: "Kolkata",
     status: "Past",
     image:
-      "https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1000&q=85",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMkj1qVjJfQgdDfz8gW--QV4TviPpICGfeTVba3Ebnag&s=10",
     description: "A beautiful day filled with laughter and friendship.",
   },
   {
     id: 3,
     title: "Winter Meetup",
-    date: "2026-12-20",
+    date: "2026-12-31 to 2026-12-01",
     location: "Kolkata",
     status: "Upcoming",
     image:
-      "https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1000&q=85",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaPOqd-N97t20W9ZP1Ybq-9_tjz1o1vCDXJYu1o9aqjw&s=10",
     description: "Let's make another unforgettable chapter together.",
   },
 ];
