@@ -220,16 +220,7 @@ export default function Members() {
                     </p>
                   )}
 
-                  {isMember && item.birthday && (
-  <p className="mt-1 text-xs font-medium text-violet-600">
-    🎂{" "}
-    {new Date(item.birthday).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "long",
-      timeZone: "UTC",
-    })}
-  </p>
-)}
+                  
 
                   <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
                     <span className="text-xs text-slate-400">
