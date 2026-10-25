@@ -55,7 +55,7 @@ export const memories = [
 export const events = [
   {
     id: 1,
-    title: "Friends Reunion",
+    title: "FriendsZone Annual Meetup",
     date: "2026-11-15",
     location: "Kolkata",
     status: "Upcoming",
@@ -82,6 +82,16 @@ export const events = [
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaPOqd-N97t20W9ZP1Ybq-9_tjz1o1vCDXJYu1o9aqjw&s=10",
     description: "Let's make another unforgettable chapter together.",
+  },
+    {
+    id: 4,
+    title: "Digha Beach Trip",
+    date: "2026-12-31",
+    location: "Digha, West Bengal",
+    status: "Upcoming",
+    image:
+      "https://www.cygnetthotels.com/blog/wp-content/uploads/2025/01/digha-img_1.jpg",
+    description: "A day to meet again, share stories and make new memories in digha.",
   },
 ];
 
