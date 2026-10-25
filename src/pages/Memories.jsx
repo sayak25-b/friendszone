@@ -199,7 +199,7 @@ export default function Memories() {
                       src={apiAssetUrl(memory.imageUrl)}
                       alt={memory.title}
                       loading="lazy"
-                      className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                      className="h-full w-full object-contain transition duration-700 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-transparent opacity-80 transition group-hover:opacity-100" />
                     <span className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/90 px-3 py-1.5 text-xs font-bold text-violet-800 backdrop-blur">
