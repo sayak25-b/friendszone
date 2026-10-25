@@ -80,7 +80,7 @@ export default function Memories() {
                   <img
                     src={apiAssetUrl(featuredMemory.imageUrl)}
                     alt={featuredMemory.title}
-                    className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                    className="h-full w-full object-contain transition duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/5 to-transparent" />
                   <span className="absolute left-5 top-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/90 px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-violet-800 backdrop-blur">
