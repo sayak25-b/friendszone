@@ -4,6 +4,8 @@ import { Images, LogOut, Plus, Save, Trash2, Users } from "lucide-react";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
 
+
+
 const TOKEN_KEY = "friendszone-admin-token";
 const emptyMember = {
   name: "",
@@ -12,6 +14,7 @@ const emptyMember = {
   bio: "",
   imageUrl: "",
   joinedAt: new Date().toISOString().slice(0, 10),
+  birthday: "",
   email: "",
   instagram: "",
   website: "",
@@ -124,7 +127,11 @@ export default function Admin() {
     setImageSource("url");
     setForm(
       isMember
-        ? { ...item, joinedAt: dateInput(item.joinedAt) }
+        ? {
+    ...item,
+    joinedAt: dateInput(item.joinedAt),
+    birthday: dateInput(item.birthday),
+  }
         : { ...item, date: dateInput(item.date), tags: (item.tags || []).join(", ") }
     );
     setError("");
@@ -199,13 +206,16 @@ export default function Admin() {
     let payload;
     try {
       payload = isMember
-        ? {
-            ...form,
-            joinedAt: form.joinedAt
-              ? new Date(`${form.joinedAt}T12:00:00`).toISOString()
-              : undefined,
-            email: form.email?.trim() || undefined,
-          }
+  ? {
+      ...form,
+      joinedAt: form.joinedAt
+        ? new Date(`${form.joinedAt}T12:00:00`).toISOString()
+        : undefined,
+      birthday: form.birthday
+        ? new Date(`${form.birthday}T12:00:00`).toISOString()
+        : null,
+      email: form.email?.trim() || undefined,
+    }
         : {
             ...form,
             date: new Date(`${form.date}T12:00:00`).toISOString(),
@@ -381,6 +391,13 @@ export default function Admin() {
                   <TextField label="Role" name="role" value={form.role} onChange={changeField} />
                   <TextField label="City" name="city" value={form.city} onChange={changeField} />
                   <TextField label="Joined on" name="joinedAt" type="date" value={form.joinedAt} onChange={changeField} />
+                  <TextField
+  label="Birthday"
+  name="birthday"
+  type="date"
+  value={form.birthday}
+  onChange={changeField}
+/>
                   <label className="block">
                     <span className="mb-2 block text-sm font-bold text-slate-700">Bio</span>
                     <textarea name="bio" value={form.bio} onChange={changeField} rows={3} className="w-full rounded-xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />

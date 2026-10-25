@@ -9,6 +9,7 @@ const links = [
   { name: "Memories", path: "/memories" },
   { name: "Events", path: "/events" },
   { name: "Members", path: "/members" },
+  { name: "Birthday Calendar", path: "/birthday-calendar" }
 ];
 
 export default function Navbar() {
