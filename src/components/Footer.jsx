@@ -25,6 +25,7 @@ export default function Footer() {
             <Link className="hover:text-white" to="/memories">Memories</Link>
             <Link className="hover:text-white" to="/events">Events</Link>
             <Link className="hover:text-white" to="/members">Members</Link>
+            <Link className="hover:text-white" to="/birthday-calendar">Birthday Calendar</Link>
             <Link className="hover:text-white" to="/admin">Admin</Link>
           </div>
         </div>
