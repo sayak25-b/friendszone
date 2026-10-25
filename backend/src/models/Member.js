@@ -11,10 +11,7 @@ const memberSchema = new mongoose.Schema(
     },
     city: { type: String, trim: true, maxlength: 120, default: "" },
     bio: { type: String, trim: true, maxlength: 2000, default: "" },
-    birthday: {
-  type: Date,
-  default: null,
-},
+
     imageUrl: { type: String, required: true, trim: true, maxlength: 2048 },
     joinedAt: { type: Date, default: Date.now },
     email: {

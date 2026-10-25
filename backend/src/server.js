@@ -1,9 +1,6 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import app from "./app.js";
-import birthdayRoutes from "./routes/birthdayRoutes.js";
-
-app.use("/api/birthdays", birthdayRoutes);
 
 const port = Number(process.env.PORT || 5000);
 
