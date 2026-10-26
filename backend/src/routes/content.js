@@ -90,6 +90,11 @@ function awardInput(body) {
   return input;
 }
 
+function ballotNomineeIds(ballot) {
+  const nomineeIds = Array.isArray(ballot.nominee) ? ballot.nominee : [ballot.nominee];
+  return nomineeIds.filter(Boolean).map(String);
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, callback) => {
@@ -137,6 +142,7 @@ router.get("/awards", async (req, res, next) => {
     const counts = closedAwards.length
       ? await AwardVote.aggregate([
           { $match: { award: { $in: closedAwards.map((award) => award._id) } } },
+          { $unwind: "$nominee" },
           { $group: { _id: { award: "$award", nominee: "$nominee" }, votes: { $sum: 1 } } },
         ])
       : [];
@@ -147,18 +153,20 @@ router.get("/awards", async (req, res, next) => {
       resultsByAward.get(awardId)[String(count._id.nominee)] = count.votes;
     }
 
-    let votesByAward = new Set();
+    const votesByAward = new Map();
     if (req.query.memberId) {
       if (!mongoose.isValidObjectId(req.query.memberId)) {
         return res.status(400).json({ error: "Member selection is invalid." });
       }
       const member = await Member.exists({ _id: req.query.memberId, isActive: true });
       if (!member) return res.status(404).json({ error: "Member not found." });
-      const votes = await AwardVote.find({
+      const ballots = await AwardVote.find({
         voter: req.query.memberId,
         award: { $in: awards.map((award) => award._id) },
-      }).select("award").lean();
-      votesByAward = new Set(votes.map((vote) => String(vote.award)));
+      }).select("award nominee").lean();
+      for (const ballot of ballots) {
+        votesByAward.set(String(ballot.award), ballotNomineeIds(ballot));
+      }
     }
 
     return res.json(awards.map((award) => {
@@ -166,7 +174,8 @@ router.get("/awards", async (req, res, next) => {
       return {
         ...award,
         closed,
-        hasVoted: votesByAward.has(String(award._id)),
+        votedNomineeIds: votesByAward.get(String(award._id)) || [],
+        votesRemaining: Math.max(0, 2 - (votesByAward.get(String(award._id)) || []).length),
         results: closed
           ? award.nominees.map((nominee) => ({
               nomineeId: String(nominee._id),
@@ -185,10 +194,22 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: "Award not found." });
     }
-    const { voterId, nomineeId } = req.body || {};
-    if (!mongoose.isValidObjectId(voterId) || !mongoose.isValidObjectId(nomineeId)) {
+    const { voterId } = req.body || {};
+    let nomineeIds = req.body?.nomineeIds ||
+      (req.body?.nomineeId ? [req.body.nomineeId] : []);
+    if (!mongoose.isValidObjectId(voterId)) {
       return res.status(400).json({ error: "Choose your member profile and a nominee." });
     }
+    if (
+      !Array.isArray(nomineeIds) ||
+      nomineeIds.length < 1 ||
+      nomineeIds.length > 2 ||
+      nomineeIds.some((id) => !mongoose.isValidObjectId(id)) ||
+      new Set(nomineeIds.map(String)).size !== nomineeIds.length
+    ) {
+      return res.status(400).json({ error: "Choose one or two different nominees." });
+    }
+    nomineeIds = nomineeIds.map((id) => new mongoose.Types.ObjectId(id));
     const [award, voter] = await Promise.all([
       Award.findById(req.params.id),
       Member.findOne({ _id: voterId, isActive: true }).select("_id"),
@@ -198,18 +219,94 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     if (award.closesAt <= new Date()) {
       return res.status(409).json({ error: "Voting for this award has closed." });
     }
-    if (String(voter._id) === String(nomineeId)) {
+    if (nomineeIds.some((nomineeId) => String(voter._id) === String(nomineeId))) {
       return res.status(400).json({ error: "You cannot vote for yourself." });
     }
-    if (!award.nominees.some((id) => String(id) === String(nomineeId))) {
+    if (nomineeIds.some((nomineeId) =>
+      !award.nominees.some((id) => String(id) === String(nomineeId))
+    )) {
       return res.status(400).json({ error: "That member is not nominated for this award." });
     }
-    await AwardVote.create({ award: award._id, voter: voter._id, nominee: nomineeId });
-    return res.status(201).json({ message: "Your vote has been counted." });
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({ error: "You have already voted for this award." });
+
+    const existingBallot = await AwardVote.findOne({
+      award: award._id,
+      voter: voter._id,
+    }).select("nominee").lean();
+    if (existingBallot) {
+      await AwardVote.updateOne(
+        { _id: existingBallot._id, nominee: { $not: { $type: "array" } } },
+        [{
+          $set: {
+            nominee: {
+              $cond: [
+                { $eq: [{ $type: "$nominee" }, "missing"] },
+                [],
+                ["$nominee"],
+              ],
+            },
+          },
+        }]
+      );
     }
+
+    const existingNominees = {
+      $cond: [
+        { $isArray: "$nominee" },
+        "$nominee",
+        { $cond: [{ $eq: [{ $type: "$nominee" }, "missing"] }, [], ["$nominee"]] },
+      ],
+    };
+    const ballot = await AwardVote.findOneAndUpdate(
+      {
+        award: award._id,
+        voter: voter._id,
+        $expr: {
+          $and: [
+            {
+              $lte: [
+                { $size: { $setUnion: [existingNominees, nomineeIds] } },
+                2,
+              ],
+            },
+            {
+              $eq: [
+                { $size: { $setIntersection: [existingNominees, nomineeIds] } },
+                0,
+              ],
+            },
+          ],
+        },
+      },
+      { $addToSet: { nominee: { $each: nomineeIds } } },
+      { new: true, runValidators: true }
+    );
+    if (ballot) {
+      return res.status(201).json({ message: "Your votes have been counted." });
+    }
+
+    try {
+      await AwardVote.create({
+        award: award._id,
+        voter: voter._id,
+        nominee: nomineeIds,
+      });
+      return res.status(201).json({ message: "Your votes have been counted." });
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+      const currentBallot = await AwardVote.findOne({
+        award: award._id,
+        voter: voter._id,
+      }).select("nominee").lean();
+      const currentNominees = currentBallot ? ballotNomineeIds(currentBallot) : [];
+      if (nomineeIds.some((id) => currentNominees.includes(String(id)))) {
+        return res.status(409).json({ error: "You have already voted for that nominee." });
+      }
+      if (currentNominees.length + nomineeIds.length > 2) {
+        return res.status(409).json({ error: "You can vote for only two different nominees per award." });
+      }
+      return res.status(409).json({ error: "Your ballot changed. Please refresh and try again." });
+    }
+  } catch (error) {
     return next(error);
   }
 });
