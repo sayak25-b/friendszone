@@ -185,18 +185,19 @@ export default function FriendsAwards() {
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
                       {award.nominees.map((nominee) => (
-                        <label key={nominee._id} className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition ${selectedNominees[award._id] === nominee._id ? "border-violet-400 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"}`}>
+                        <label key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${String(voterId) === String(nominee._id) ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : "cursor-pointer"} ${selectedNominees[award._id] === nominee._id ? "border-violet-400 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"}`}>
                           <input
                             type="radio"
                             name={`nominee-${award._id}`}
                             value={nominee._id}
                             checked={selectedNominees[award._id] === nominee._id}
                             onChange={(event) => setSelectedNominees((current) => ({ ...current, [award._id]: event.target.value }))}
-                            disabled={!voterId || award.hasVoted}
+                            disabled={!voterId || award.hasVoted || String(voterId) === String(nominee._id)}
                             className="h-4 w-4 accent-violet-600"
                           />
                           {nominee.imageUrl && <img src={apiAssetUrl(nominee.imageUrl)} alt="" className="h-10 w-10 rounded-full object-cover" />}
-                          <span className="flex-1 font-semibold text-slate-800">{nominee.name}</span>
+                          <span className="flex-1 font-semibold text-slate-800">{nominee.name}{String(voterId) === String(nominee._id) ? " (you)" : ""}</span>
+                          {String(voterId) === String(nominee._id) && <span className="text-xs font-semibold text-slate-500">Can’t vote for yourself</span>}
                           {award.hasVoted && <CheckCircle2 size={18} className="text-emerald-600" />}
                         </label>
                       ))}
@@ -205,7 +206,7 @@ export default function FriendsAwards() {
                       ) : (
                         <button
                           type="submit"
-                          disabled={!voterId || !selectedNominees[award._id] || submittingId === award._id}
+                          disabled={!voterId || !selectedNominees[award._id] || String(voterId) === String(selectedNominees[award._id]) || submittingId === award._id}
                           className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Trophy size={17} />

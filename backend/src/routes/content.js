@@ -198,6 +198,9 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     if (award.closesAt <= new Date()) {
       return res.status(409).json({ error: "Voting for this award has closed." });
     }
+    if (String(voter._id) === String(nomineeId)) {
+      return res.status(400).json({ error: "You cannot vote for yourself." });
+    }
     if (!award.nominees.some((id) => String(id) === String(nomineeId))) {
       return res.status(400).json({ error: "That member is not nominated for this award." });
     }
