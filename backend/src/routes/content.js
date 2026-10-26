@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { GridFSBucket, ObjectId } from "mongodb";
 import multer from "multer";
 import cloudinary from "../config/cloudinary.js";
+import Award from "../models/Award.js";
+import AwardVote from "../models/AwardVote.js";
 import Memory from "../models/Memory.js";
 import Member from "../models/Member.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -55,6 +57,39 @@ function recordInput(body, fields) {
   );
 }
 
+function awardInput(body) {
+  const input = recordInput(body, ["title", "description", "closesAt", "nominees"]);
+  if (typeof input.title !== "string" || !input.title.trim()) {
+    const error = new Error("Award title is required.");
+    error.status = 400;
+    throw error;
+  }
+  if (!Array.isArray(input.nominees) || input.nominees.length < 2) {
+    const error = new Error("Choose at least two nominees.");
+    error.status = 400;
+    throw error;
+  }
+  if (input.nominees.some((id) => !mongoose.isValidObjectId(id))) {
+    const error = new Error("One or more nominees are invalid.");
+    error.status = 400;
+    throw error;
+  }
+  input.nominees = [...new Set(input.nominees.map(String))];
+  if (input.nominees.length < 2) {
+    const error = new Error("Choose at least two different nominees.");
+    error.status = 400;
+    throw error;
+  }
+  const closesAt = new Date(input.closesAt);
+  if (!input.closesAt || Number.isNaN(closesAt.getTime())) {
+    const error = new Error("Choose a valid closing date.");
+    error.status = 400;
+    throw error;
+  }
+  input.closesAt = closesAt;
+  return input;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, callback) => {
@@ -91,6 +126,91 @@ router.get("/members", async (req, res, next) => {
   }
 });
 
+router.get("/awards", async (req, res, next) => {
+  try {
+    const awards = await Award.find().populate({
+      path: "nominees",
+      select: "name imageUrl",
+    }).sort({ closesAt: -1, createdAt: -1 }).lean();
+    const now = new Date();
+    const closedAwards = awards.filter((award) => award.closesAt <= now);
+    const counts = closedAwards.length
+      ? await AwardVote.aggregate([
+          { $match: { award: { $in: closedAwards.map((award) => award._id) } } },
+          { $group: { _id: { award: "$award", nominee: "$nominee" }, votes: { $sum: 1 } } },
+        ])
+      : [];
+    const resultsByAward = new Map();
+    for (const count of counts) {
+      const awardId = String(count._id.award);
+      if (!resultsByAward.has(awardId)) resultsByAward.set(awardId, {});
+      resultsByAward.get(awardId)[String(count._id.nominee)] = count.votes;
+    }
+
+    let votesByAward = new Set();
+    if (req.query.memberId) {
+      if (!mongoose.isValidObjectId(req.query.memberId)) {
+        return res.status(400).json({ error: "Member selection is invalid." });
+      }
+      const member = await Member.exists({ _id: req.query.memberId, isActive: true });
+      if (!member) return res.status(404).json({ error: "Member not found." });
+      const votes = await AwardVote.find({
+        voter: req.query.memberId,
+        award: { $in: awards.map((award) => award._id) },
+      }).select("award").lean();
+      votesByAward = new Set(votes.map((vote) => String(vote.award)));
+    }
+
+    return res.json(awards.map((award) => {
+      const closed = award.closesAt <= now;
+      return {
+        ...award,
+        closed,
+        hasVoted: votesByAward.has(String(award._id)),
+        results: closed
+          ? award.nominees.map((nominee) => ({
+              nomineeId: String(nominee._id),
+              votes: resultsByAward.get(String(award._id))?.[String(nominee._id)] || 0,
+            }))
+          : null,
+      };
+    }));
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/awards/:id/votes", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Award not found." });
+    }
+    const { voterId, nomineeId } = req.body || {};
+    if (!mongoose.isValidObjectId(voterId) || !mongoose.isValidObjectId(nomineeId)) {
+      return res.status(400).json({ error: "Choose your member profile and a nominee." });
+    }
+    const [award, voter] = await Promise.all([
+      Award.findById(req.params.id),
+      Member.findOne({ _id: voterId, isActive: true }).select("_id"),
+    ]);
+    if (!award) return res.status(404).json({ error: "Award not found." });
+    if (!voter) return res.status(404).json({ error: "Member not found." });
+    if (award.closesAt <= new Date()) {
+      return res.status(409).json({ error: "Voting for this award has closed." });
+    }
+    if (!award.nominees.some((id) => String(id) === String(nomineeId))) {
+      return res.status(400).json({ error: "That member is not nominated for this award." });
+    }
+    await AwardVote.create({ award: award._id, voter: voter._id, nominee: nomineeId });
+    return res.status(201).json({ message: "Your vote has been counted." });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "You have already voted for this award." });
+    }
+    return next(error);
+  }
+});
+
 router.get("/media/:id", async (req, res, next) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(404).json({ error: "Image not found." });
@@ -117,6 +237,88 @@ router.get("/media/:id", async (req, res, next) => {
 });
 
 router.use("/admin", requireAdmin);
+
+router.get("/admin/awards", async (req, res, next) => {
+  try {
+    const awards = await Award.find().populate({
+      path: "nominees",
+      select: "name",
+    }).sort({ closesAt: -1, createdAt: -1 }).lean();
+    const counts = await AwardVote.aggregate([
+      { $match: { award: { $in: awards.map((award) => award._id) } } },
+      { $group: { _id: "$award", votes: { $sum: 1 } } },
+    ]);
+    const countByAward = new Map(counts.map((entry) => [String(entry._id), entry.votes]));
+    return res.json(awards.map((award) => ({
+      ...award,
+      voteCount: countByAward.get(String(award._id)) || 0,
+    })));
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/admin/awards", async (req, res, next) => {
+  try {
+    const input = awardInput(req.body);
+    const activeNominees = await Member.countDocuments({
+      _id: { $in: input.nominees },
+      isActive: true,
+    });
+    if (activeNominees !== input.nominees.length) {
+      return res.status(400).json({ error: "Every nominee must be an active member." });
+    }
+    const award = await Award.create(input);
+    return res.status(201).json(award);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/admin/awards/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Award not found." });
+    }
+    const input = awardInput(req.body);
+    const award = await Award.findById(req.params.id);
+    if (!award) return res.status(404).json({ error: "Award not found." });
+    const activeNominees = await Member.countDocuments({
+      _id: { $in: input.nominees },
+      isActive: true,
+    });
+    if (activeNominees !== input.nominees.length) {
+      return res.status(400).json({ error: "Every nominee must be an active member." });
+    }
+    const removedNominees = award.nominees.filter(
+      (nomineeId) => !input.nominees.includes(String(nomineeId))
+    );
+    if (removedNominees.length && await AwardVote.exists({
+      award: award._id,
+      nominee: { $in: removedNominees },
+    })) {
+      return res.status(409).json({
+        error: "A nominee who has already received votes cannot be removed.",
+      });
+    }
+    Object.assign(award, input);
+    await award.save();
+    return res.json(award);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/admin/awards/:id", async (req, res, next) => {
+  try {
+    const award = await Award.findByIdAndDelete(req.params.id);
+    if (!award) return res.status(404).json({ error: "Award not found." });
+    await AwardVote.deleteMany({ award: award._id });
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.post("/admin/uploads", (req, res, next) => {
   upload.single("image")(req, res, async (error) => {

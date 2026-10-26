@@ -9,7 +9,8 @@ const links = [
   { name: "Memories", path: "/memories" },
   { name: "Events", path: "/events" },
   { name: "Members", path: "/members" },
-  { name: "Birthday Calendar", path: "/birthday-calendar" }
+  { name: "Birthday Calendar", path: "/birthday-calendar" },
+  { name: "Awards", path: "/awards" }
 ];
 
 export default function Navbar() {

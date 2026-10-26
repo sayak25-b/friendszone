@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Images, LogOut, Plus, Save, Trash2, Users } from "lucide-react";
+import { Award, Images, LogOut, Plus, Save, Trash2, Users } from "lucide-react";
+import AwardsAdmin from "../components/AwardsAdmin";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
 
@@ -86,7 +87,7 @@ export default function Admin() {
   const emptyForm = isMember ? emptyMember : emptyMemory;
 
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token || tab === "awards") return undefined;
     const controller = new AbortController();
     apiRequest(`/admin/${tab}`, { token, signal: controller.signal })
       .then((records) => setItems(records))
@@ -312,18 +313,19 @@ export default function Admin() {
         </div>
 
         <div className="mt-8 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
-          <section className="rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
+          <section className="rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7 lg:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex gap-2 rounded-full bg-violet-50 p-1">
                 {[
                   { id: "members", label: "Members", Icon: Users },
                   { id: "memories", label: "Memories", Icon: Images },
+                  { id: "awards", label: "Awards", Icon: Award },
                 ].map(({ id, label, Icon }) => (
                   <button
                     key={id}
                     type="button"
                     onClick={() => {
-                      setLoading(true);
+                      setLoading(id !== "awards");
                       setTab(id);
                       setEditingId("");
                       setForm({ ...(id === "members" ? emptyMember : emptyMemory) });
@@ -336,11 +338,17 @@ export default function Admin() {
                   </button>
                 ))}
               </div>
-              <button type="button" onClick={newRecord} className="inline-flex items-center gap-2 rounded-full border border-violet-200 px-4 py-2 text-sm font-bold text-violet-700">
-                <Plus size={17} /> New {isMember ? "member" : "memory"}
-              </button>
+              {tab !== "awards" && (
+                <button type="button" onClick={newRecord} className="inline-flex items-center gap-2 rounded-full border border-violet-200 px-4 py-2 text-sm font-bold text-violet-700">
+                  <Plus size={17} /> New {isMember ? "member" : "memory"}
+                </button>
+              )}
             </div>
+          </section>
 
+            {tab === "awards" ? <AwardsAdmin token={token} /> : (
+            <>
+            <section className="rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
             {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {notice && <p role="status" className="mt-5 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</p>}
 
@@ -493,6 +501,8 @@ export default function Admin() {
               </div>
             </form>
           </section>
+            </>
+            )}
         </div>
       </div>
     </main>
