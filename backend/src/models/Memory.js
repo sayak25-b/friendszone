@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 
+const memoryCommentSchema = new mongoose.Schema(
+  {
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "Member", required: true },
+    text: { type: String, required: true, trim: true, maxlength: 500 },
+  },
+  { timestamps: true }
+);
+
 const memorySchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true, maxlength: 120 },
@@ -11,6 +19,16 @@ const memorySchema = new mongoose.Schema(
     tags: { type: [String], default: [] },
     featured: { type: Boolean, default: false },
     published: { type: Boolean, default: true },
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Member",
+      default: null,
+    },
+    comments: { type: [memoryCommentSchema], default: [] },
+    likes: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Member" }],
+      default: [],
+    },
   },
   { timestamps: true }
 );

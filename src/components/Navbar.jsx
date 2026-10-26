@@ -6,7 +6,7 @@ import { GOOGLE_FORM_URL } from "../data/websiteData";
 
 const links = [
   { name: "Home", path: "/" },
-  { name: "Memories", path: "/memories" },
+  { name: "Memory Lane", path: "/memories" },
   { name: "Events", path: "/events" },
   { name: "Members", path: "/members" },
   { name: "Birthday Calendar", path: "/birthday-calendar" },

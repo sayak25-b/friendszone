@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Award, Images, LogOut, Plus, Save, Trash2, Users } from "lucide-react";
 import AwardsAdmin from "../components/AwardsAdmin";
+import MemoryLaneAdmin from "../components/MemoryLaneAdmin";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
 
@@ -87,7 +88,7 @@ export default function Admin() {
   const emptyForm = isMember ? emptyMember : emptyMemory;
 
   useEffect(() => {
-    if (!token || tab === "awards") return undefined;
+    if (!token || tab === "awards" || tab === "memory-lane") return undefined;
     const controller = new AbortController();
     apiRequest(`/admin/${tab}`, { token, signal: controller.signal })
       .then((records) => setItems(records))
@@ -319,13 +320,14 @@ export default function Admin() {
                 {[
                   { id: "members", label: "Members", Icon: Users },
                   { id: "memories", label: "Memories", Icon: Images },
+                  { id: "memory-lane", label: "Memory Lane", Icon: Images },
                   { id: "awards", label: "Awards", Icon: Award },
                 ].map(({ id, label, Icon }) => (
                   <button
                     key={id}
                     type="button"
                     onClick={() => {
-                      setLoading(id !== "awards");
+                      setLoading(id !== "awards" && id !== "memory-lane");
                       setTab(id);
                       setEditingId("");
                       setForm({ ...(id === "members" ? emptyMember : emptyMemory) });
@@ -338,7 +340,7 @@ export default function Admin() {
                   </button>
                 ))}
               </div>
-              {tab !== "awards" && (
+              {(tab === "members" || tab === "memories") && (
                 <button type="button" onClick={newRecord} className="inline-flex items-center gap-2 rounded-full border border-violet-200 px-4 py-2 text-sm font-bold text-violet-700">
                   <Plus size={17} /> New {isMember ? "member" : "memory"}
                 </button>
@@ -346,7 +348,7 @@ export default function Admin() {
             </div>
           </section>
 
-            {tab === "awards" ? <AwardsAdmin token={token} /> : (
+            {tab === "awards" ? <AwardsAdmin token={token} /> : tab === "memory-lane" ? <MemoryLaneAdmin token={token} /> : (
             <>
             <section className="rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
             {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}

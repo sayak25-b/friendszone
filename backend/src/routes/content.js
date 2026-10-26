@@ -95,6 +95,42 @@ function ballotNomineeIds(ballot) {
   return nomineeIds.filter(Boolean).map(String);
 }
 
+async function uploadImageBuffer(buffer) {
+  if (
+    !process.env.CLOUDINARY_CLOUD_NAME ||
+    !process.env.CLOUDINARY_API_KEY ||
+    !process.env.CLOUDINARY_API_SECRET
+  ) {
+    const error = new Error("Image uploads are not configured on the backend.");
+    error.status = 503;
+    throw error;
+  }
+
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const imageStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "friendszone",
+          resource_type: "image",
+          allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
+        },
+        (uploadError, uploadedImage) => {
+          if (uploadError) return reject(uploadError);
+          return resolve(uploadedImage);
+        }
+      );
+      imageStream.end(buffer);
+    });
+    if (!result?.secure_url) throw new Error("Cloudinary did not return a secure image URL.");
+    return result.secure_url;
+  } catch (error) {
+    console.error("Cloudinary image upload failed:", error);
+    const uploadError = new Error("Cloudinary could not save this image. Check the backend image configuration.");
+    uploadError.status = 502;
+    throw uploadError;
+  }
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, callback) => {
@@ -110,10 +146,138 @@ const upload = multer({
 
 router.get("/memories", async (req, res, next) => {
   try {
+    let memberId;
+    if (req.query.memberId) {
+      if (!mongoose.isValidObjectId(req.query.memberId)) {
+        return res.status(400).json({ error: "Member selection is invalid." });
+      }
+      const member = await Member.exists({ _id: req.query.memberId, isActive: true });
+      if (!member) return res.status(404).json({ error: "Member not found." });
+      memberId = String(req.query.memberId);
+    }
     const memories = await Memory.find({ published: true })
+      .populate({ path: "submittedBy", select: "name" })
+      .populate({ path: "comments.author", select: "name" })
+      .slice("comments", -100)
       .sort({ date: -1, createdAt: -1 })
       .lean();
-    return res.json(memories);
+    return res.json(memories.map((memory) => ({
+      ...memory,
+      likeCount: (memory.likes || []).length,
+      likedByMember: memberId
+        ? (memory.likes || []).some((id) => String(id) === memberId)
+        : false,
+      likes: undefined,
+    })));
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/memory-lane", (req, res, next) => {
+  upload.single("image")(req, res, async (uploadError) => {
+    if (uploadError) return next(uploadError);
+    try {
+      const { title, description, date, tags, memberId } = req.body || {};
+      if (!req.file) return res.status(400).json({ error: "Choose a photo for your memory." });
+      if (!mongoose.isValidObjectId(memberId)) {
+        return res.status(400).json({ error: "Choose your member profile before sharing." });
+      }
+      const author = await Member.findOne({ _id: memberId, isActive: true }).select("_id");
+      if (!author) return res.status(404).json({ error: "Member not found." });
+      if (typeof title !== "string" || !title.trim() || title.trim().length > 120) {
+        return res.status(400).json({ error: "Add a caption between 1 and 120 characters." });
+      }
+      if (typeof description !== "string" || !description.trim() || description.trim().length > 2000) {
+        return res.status(400).json({ error: "Add a story between 1 and 2,000 characters." });
+      }
+      const memoryDate = new Date(date);
+      if (!date || Number.isNaN(memoryDate.getTime())) {
+        return res.status(400).json({ error: "Choose a valid memory date." });
+      }
+      const memoryTags = typeof tags === "string"
+        ? [...new Set(tags.split(",").map((tag) => tag.trim()).filter(Boolean))]
+        : [];
+      if (memoryTags.length > 10 || memoryTags.some((tag) => tag.length > 30)) {
+        return res.status(400).json({ error: "Add up to 10 tags, each 30 characters or fewer." });
+      }
+
+      const imageUrl = await uploadImageBuffer(req.file.buffer);
+      const memory = await Memory.create({
+        title: title.trim(),
+        description: description.trim(),
+        date: memoryDate,
+        imageUrl,
+        tags: memoryTags,
+        submittedBy: author._id,
+        published: false,
+      });
+      return res.status(201).json({
+        message: "Memory submitted for admin approval.",
+        memoryId: memory._id,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
+});
+
+router.post("/memories/:id/comments", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Memory not found." });
+    }
+    const { memberId, text } = req.body || {};
+    if (!mongoose.isValidObjectId(memberId)) {
+      return res.status(400).json({ error: "Choose your member profile to comment." });
+    }
+    if (typeof text !== "string" || !text.trim() || text.trim().length > 500) {
+      return res.status(400).json({ error: "Write a comment up to 500 characters." });
+    }
+    const author = await Member.findOne({ _id: memberId, isActive: true }).select("_id");
+    if (!author) return res.status(404).json({ error: "Member not found." });
+    const memory = await Memory.findOneAndUpdate(
+      { _id: req.params.id, published: true },
+      { $push: { comments: { $each: [{ author: author._id, text: text.trim() }], $slice: -100 } } },
+      { new: true }
+    );
+    if (!memory) return res.status(404).json({ error: "Memory not found." });
+    return res.status(201).json({ message: "Comment added." });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/memories/:id/likes", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Memory not found." });
+    }
+    const { memberId } = req.body || {};
+    if (!mongoose.isValidObjectId(memberId)) {
+      return res.status(400).json({ error: "Choose your member profile to like a memory." });
+    }
+    const member = await Member.findOne({ _id: memberId, isActive: true }).select("_id");
+    if (!member) return res.status(404).json({ error: "Member not found." });
+    const liked = await Memory.updateOne(
+      { _id: req.params.id, published: true, likes: member._id },
+      { $pull: { likes: member._id } }
+    );
+    if (!liked.matchedCount) {
+      const added = await Memory.updateOne(
+        { _id: req.params.id, published: true, likes: { $ne: member._id } },
+        { $addToSet: { likes: member._id } }
+      );
+      if (!added.matchedCount) {
+        const exists = await Memory.exists({ _id: req.params.id, published: true });
+        if (!exists) return res.status(404).json({ error: "Memory not found." });
+      }
+    }
+    const memory = await Memory.findById(req.params.id).select("likes").lean();
+    return res.json({
+      likeCount: memory.likes.length,
+      likedByMember: memory.likes.some((id) => String(id) === String(member._id)),
+    });
   } catch (error) {
     return next(error);
   }
@@ -338,6 +502,45 @@ router.get("/media/:id", async (req, res, next) => {
 
 router.use("/admin", requireAdmin);
 
+router.get("/admin/memory-lane", async (req, res, next) => {
+  try {
+    const submissions = await Memory.find({ submittedBy: { $ne: null } })
+      .populate({ path: "submittedBy", select: "name" })
+      .sort({ published: 1, createdAt: -1 })
+      .lean();
+    return res.json(submissions);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/admin/memory-lane/:id/publish", async (req, res, next) => {
+  try {
+    const memory = await Memory.findOneAndUpdate(
+      { _id: req.params.id, submittedBy: { $ne: null } },
+      { $set: { published: true } },
+      { new: true, runValidators: true }
+    );
+    if (!memory) return res.status(404).json({ error: "Memory submission not found." });
+    return res.json(memory);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/admin/memory-lane/:id", async (req, res, next) => {
+  try {
+    const memory = await Memory.findOneAndDelete({
+      _id: req.params.id,
+      submittedBy: { $ne: null },
+    });
+    if (!memory) return res.status(404).json({ error: "Memory submission not found." });
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get("/admin/awards", async (req, res, next) => {
   try {
     const awards = await Award.find().populate({
@@ -424,44 +627,11 @@ router.post("/admin/uploads", (req, res, next) => {
   upload.single("image")(req, res, async (error) => {
     if (error) return next(error);
     if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
-
-    if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY ||
-      !process.env.CLOUDINARY_API_SECRET
-    ) {
-      return res.status(503).json({
-        error: "Image uploads are not configured. Set the Cloudinary credentials on the backend.",
-      });
-    }
-
     try {
-      const result = await new Promise((resolve, reject) => {
-        const imageStream = cloudinary.uploader.upload_stream(
-          {
-            folder: "friendszone",
-            resource_type: "image",
-            allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
-          },
-          (uploadError, uploadedImage) => {
-            if (uploadError) return reject(uploadError);
-            return resolve(uploadedImage);
-          }
-        );
-        imageStream.end(req.file.buffer);
-      });
-
-      if (!result?.secure_url) {
-        return next(new Error("Cloudinary did not return a secure image URL."));
-      }
-
-      return res.status(201).json({ imageUrl: result.secure_url });
-    } catch (uploadError) {
-      console.error("Cloudinary image upload failed:", uploadError);
-      return res.status(502).json({
-        error:
-          "Cloudinary could not save this image. Check the Cloudinary credentials configured on the backend.",
-      });
+      const imageUrl = await uploadImageBuffer(req.file.buffer);
+      return res.status(201).json({ imageUrl });
+    } catch (uploadFailure) {
+      return next(uploadFailure);
     }
   });
 });
@@ -492,7 +662,6 @@ router.put("/admin/memories/:id", async (req, res, next) => {
       {
         new: true,
         runValidators: true,
-        overwrite: true,
       }
     );
     if (!memory) return res.status(404).json({ error: "Memory not found." });
