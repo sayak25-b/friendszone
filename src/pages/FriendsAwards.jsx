@@ -62,6 +62,7 @@ export default function FriendsAwards() {
   function changeVoter(event) {
     const nextVoterId = event.target.value;
     setVoterId(nextVoterId);
+    setSelectedNominees({});
     setLoading(true);
     setError("");
     setNotice("");
@@ -140,9 +141,9 @@ export default function FriendsAwards() {
         ) : awards.length ? (
           <div className="grid gap-6 lg:grid-cols-2">
             {awards.map((award) => {
-              const alreadyVoted = award.votedNomineeIds || [];
               const selectedForAward = selectedNominees[award._id] || [];
               const votesRemaining = award.votesRemaining ?? 2;
+              const votesUsed = award.votesUsed ?? 2 - votesRemaining;
               const resultByNominee = new Map(
                 (award.results || []).map((result) => [result.nomineeId, result.votes])
               );
@@ -188,10 +189,12 @@ export default function FriendsAwards() {
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
                       <p className="text-sm font-semibold text-slate-500">
-                        {alreadyVoted.length} of 2 votes used · {votesRemaining} remaining
+                        {votesUsed === 0
+                          ? "No votes used yet · 2 votes remaining"
+                          : `${votesUsed} of 2 votes used · ${votesRemaining} remaining`}
                       </p>
                       {award.nominees.map((nominee) => (
-                        <label key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${String(voterId) === String(nominee._id) || alreadyVoted.includes(String(nominee._id)) ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : "cursor-pointer"} ${selectedForAward.includes(String(nominee._id)) ? "border-violet-400 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"}`}>
+                        <label key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${String(voterId) === String(nominee._id) ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : "cursor-pointer"} ${selectedForAward.includes(String(nominee._id)) ? "border-violet-400 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"}`}>
                           <input
                             type="checkbox"
                             value={nominee._id}
@@ -212,7 +215,6 @@ export default function FriendsAwards() {
                             disabled={
                               !voterId ||
                               String(voterId) === String(nominee._id) ||
-                              alreadyVoted.includes(String(nominee._id)) ||
                               (!selectedForAward.includes(String(nominee._id)) &&
                                 selectedForAward.length >= votesRemaining)
                             }
@@ -221,11 +223,10 @@ export default function FriendsAwards() {
                           {nominee.imageUrl && <img src={apiAssetUrl(nominee.imageUrl)} alt="" className="h-10 w-10 rounded-full object-cover" />}
                           <span className="flex-1 font-semibold text-slate-800">{nominee.name}{String(voterId) === String(nominee._id) ? " (you)" : ""}</span>
                           {String(voterId) === String(nominee._id) && <span className="text-xs font-semibold text-slate-500">Can’t vote for yourself</span>}
-                          {alreadyVoted.includes(String(nominee._id)) && <span className="text-xs font-semibold text-emerald-700">Voted</span>}
                         </label>
                       ))}
                       {votesRemaining === 0 ? (
-                        <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> You’ve used both votes for this category.</p>
+                        <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> Your two votes are recorded privately.</p>
                       ) : (
                         <button
                           type="submit"

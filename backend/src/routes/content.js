@@ -317,7 +317,7 @@ router.get("/awards", async (req, res, next) => {
       resultsByAward.get(awardId)[String(count._id.nominee)] = count.votes;
     }
 
-    const votesByAward = new Map();
+    const votesUsedByAward = new Map();
     if (req.query.memberId) {
       if (!mongoose.isValidObjectId(req.query.memberId)) {
         return res.status(400).json({ error: "Member selection is invalid." });
@@ -329,7 +329,7 @@ router.get("/awards", async (req, res, next) => {
         award: { $in: awards.map((award) => award._id) },
       }).select("award nominee").lean();
       for (const ballot of ballots) {
-        votesByAward.set(String(ballot.award), ballotNomineeIds(ballot));
+        votesUsedByAward.set(String(ballot.award), ballotNomineeIds(ballot).length);
       }
     }
 
@@ -338,8 +338,8 @@ router.get("/awards", async (req, res, next) => {
       return {
         ...award,
         closed,
-        votedNomineeIds: votesByAward.get(String(award._id)) || [],
-        votesRemaining: Math.max(0, 2 - (votesByAward.get(String(award._id)) || []).length),
+        votesUsed: votesUsedByAward.get(String(award._id)) || 0,
+        votesRemaining: Math.max(0, 2 - (votesUsedByAward.get(String(award._id)) || 0)),
         results: closed
           ? award.nominees.map((nominee) => ({
               nomineeId: String(nominee._id),
@@ -463,7 +463,9 @@ router.post("/awards/:id/votes", async (req, res, next) => {
       }).select("nominee").lean();
       const currentNominees = currentBallot ? ballotNomineeIds(currentBallot) : [];
       if (nomineeIds.some((id) => currentNominees.includes(String(id)))) {
-        return res.status(409).json({ error: "You have already voted for that nominee." });
+        return res.status(409).json({
+          error: "One or more selected nominees were already chosen. Your existing votes remain private.",
+        });
       }
       if (currentNominees.length + nomineeIds.length > 2) {
         return res.status(409).json({ error: "You can vote for only two different nominees per award." });
