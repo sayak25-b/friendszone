@@ -82,7 +82,7 @@ function awardInput(body) {
   }
   const closesAt = new Date(input.closesAt);
   if (!input.closesAt || Number.isNaN(closesAt.getTime())) {
-    const error = new Error("Choose a valid closing date.");
+    const error = new Error("Choose a valid closing date and time.");
     error.status = 400;
     throw error;
   }

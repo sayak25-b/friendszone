@@ -5,10 +5,13 @@ import { apiAssetUrl, apiRequest } from "../lib/api";
 const VOTER_KEY = "friendszone-awards-voter";
 
 function formatDate(value) {
-  return new Date(value).toLocaleDateString("en-IN", {
+  return new Date(value).toLocaleString("en-IN", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
 }
 

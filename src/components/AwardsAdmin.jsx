@@ -2,30 +2,46 @@ import { useEffect, useState } from "react";
 import { Award, CalendarDays, Pencil, Plus, Save, Trash2, Users } from "lucide-react";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 
-function dateInput(value) {
+function formatClosingDateTime(value) {
+  return new Date(value).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function dateTimeInput(value) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function localDateString(date) {
+function localDateTimeString(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function initialForm() {
   const closesAt = new Date();
   closesAt.setDate(closesAt.getDate() + 7);
+  closesAt.setHours(23, 59, 0, 0);
   return {
     title: "",
     description: "",
-    closesAt: localDateString(closesAt),
+    closesAt: localDateTimeString(closesAt),
     nominees: [],
   };
 }
@@ -80,7 +96,7 @@ export default function AwardsAdmin({ token }) {
     setForm({
       title: award.title,
       description: award.description || "",
-      closesAt: dateInput(award.closesAt),
+      closesAt: dateTimeInput(award.closesAt),
       nominees: award.nominees.map((member) => String(member._id)),
     });
     setError("");
@@ -96,7 +112,7 @@ export default function AwardsAdmin({ token }) {
       const payload = {
         ...form,
         title: form.title.trim(),
-        closesAt: new Date(`${form.closesAt}T23:59:59.999`).toISOString(),
+        closesAt: new Date(form.closesAt).toISOString(),
       };
       const record = await apiRequest(
         editingId ? `/admin/awards/${editingId}` : "/admin/awards",
@@ -157,7 +173,7 @@ export default function AwardsAdmin({ token }) {
               <div className="min-w-0 flex-1">
                 <h3 className="truncate font-bold text-slate-900">{item.title}</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Closes {new Date(item.closesAt).toLocaleDateString("en-IN")} · {item.nominees.length} nominees · {item.voteCount} votes
+                  Closes {formatClosingDateTime(item.closesAt)} · {item.nominees.length} nominees · {item.voteCount} votes
                 </p>
               </div>
               <button type="button" onClick={() => editAward(item)} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-bold text-violet-700 hover:bg-violet-50"><Pencil size={15} /> Edit</button>
@@ -171,7 +187,7 @@ export default function AwardsAdmin({ token }) {
 
       <section className="h-fit rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
         <h2 className="text-xl font-black text-slate-900">{editingId ? "Edit award" : "Create an award"}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">Choose a fun category, closing date, and at least two active member nominees.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Choose a fun category, closing date and time, and at least two active member nominees.</p>
         <form onSubmit={saveAward} className="mt-6 space-y-4">
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-700">Award category</span>
@@ -185,7 +201,7 @@ export default function AwardsAdmin({ token }) {
             <span className="mb-2 block text-sm font-bold text-slate-700">Voting closes</span>
             <span className="relative block">
               <CalendarDays size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-violet-500" />
-              <input required type="date" value={form.closesAt} onChange={(event) => setForm((current) => ({ ...current, closesAt: event.target.value }))} className="w-full rounded-xl border border-violet-100 py-3 pl-11 pr-4 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />
+              <input required type="datetime-local" value={form.closesAt} onChange={(event) => setForm((current) => ({ ...current, closesAt: event.target.value }))} className="w-full rounded-xl border border-violet-100 py-3 pl-11 pr-4 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />
             </span>
           </label>
           <fieldset className="rounded-2xl border border-violet-100 p-4">
