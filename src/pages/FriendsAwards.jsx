@@ -96,6 +96,33 @@ export default function FriendsAwards() {
     }
   }
 
+  const winsByMember = new Map();
+  for (const award of awards) {
+    if (!award.closed || !award.results?.length) continue;
+    const winningScore = Math.max(...award.results.map((result) => result.votes));
+    if (winningScore === 0) continue;
+
+    const winnerIds = new Set(
+      award.results
+        .filter((result) => result.votes === winningScore)
+        .map((result) => result.nomineeId)
+    );
+    for (const nominee of award.nominees) {
+      if (!winnerIds.has(String(nominee._id))) continue;
+      const memberWins = winsByMember.get(String(nominee._id)) || {
+        member: nominee,
+        awards: [],
+      };
+      memberWins.awards.push({ id: award._id, title: award.title });
+      winsByMember.set(String(nominee._id), memberWins);
+    }
+  }
+  const memberAwardWins = [...winsByMember.values()].sort(
+    (first, second) =>
+      second.awards.length - first.awards.length ||
+      first.member.name.localeCompare(second.member.name)
+  );
+
   return (
     <main className="min-h-screen bg-[#faf8ff]">
       <section className="relative overflow-hidden bg-[#171329] text-white">
@@ -142,8 +169,36 @@ export default function FriendsAwards() {
         {loading ? (
           <p className="rounded-3xl border border-violet-100 bg-white p-10 text-center text-slate-500">Loading awards…</p>
         ) : awards.length ? (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {awards.map((award) => {
+          <>
+            {memberAwardWins.length > 0 && (
+              <section aria-labelledby="award-winners-heading" className="mb-8 rounded-3xl border border-amber-200 bg-white p-5 shadow-sm sm:p-7">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700"><Trophy size={22} /></span>
+                  <div>
+                    <h2 id="award-winners-heading" className="text-xl font-black text-slate-900">Award winners</h2>
+                    <p className="text-sm text-slate-500">Each member’s wins across categories that have closed.</p>
+                  </div>
+                </div>
+                <ol className="grid gap-3 sm:grid-cols-2">
+                  {memberAwardWins.map(({ member, awards: wonAwards }) => (
+                    <li key={member._id} className="flex items-center gap-3 rounded-2xl bg-amber-50/70 p-4">
+                      {member.imageUrl && <img src={apiAssetUrl(member.imageUrl)} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-900">{member.name}</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-600">
+                          {wonAwards.map((award) => award.title).join(", ")}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-extrabold text-amber-700">
+                        {wonAwards.length} {wonAwards.length === 1 ? "award" : "awards"}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+            <div className="grid gap-6 lg:grid-cols-2">
+              {awards.map((award) => {
               const selectedForAward = selectedNominees[award._id] || [];
               const votesRemaining = award.votesRemaining ?? 2;
               const votesUsed = award.votesUsed ?? 2 - votesRemaining;
@@ -244,8 +299,9 @@ export default function FriendsAwards() {
                   )}
                 </article>
               );
-            })}
-          </div>
+              })}
+            </div>
+          </>
         ) : (
           <div className="rounded-3xl border border-violet-100 bg-white p-10 text-center">
             <Trophy size={36} className="mx-auto text-violet-400" />
