@@ -10,6 +10,7 @@ import Members from "./pages/Members";
 import Admin from "./pages/Admin";
 import BirthdayCalendar from "./pages/BirthdayCalendar";
 import FriendsAwards from "./pages/FriendsAwards";
+import AppreciationWall from "./pages/AppreciationWall";
 
 
 function NotFound() {
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/birthday-calendar" element={<BirthdayCalendar />} />
             <Route path="/awards" element={<FriendsAwards />} />
+            <Route path="/appreciation-wall" element={<AppreciationWall />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>

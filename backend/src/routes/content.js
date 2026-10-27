@@ -5,6 +5,7 @@ import multer from "multer";
 import cloudinary from "../config/cloudinary.js";
 import Award from "../models/Award.js";
 import AwardVote from "../models/AwardVote.js";
+import AppreciationNote from "../models/AppreciationNote.js";
 import Memory from "../models/Memory.js";
 import Member from "../models/Member.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -295,6 +296,160 @@ router.get("/members", async (req, res, next) => {
   }
 });
 
+const appreciationCategories = ["thank-you", "compliment", "motivation", "memory"];
+const appreciationReactions = ["heart", "hug", "cheer"];
+
+router.get("/appreciation-wall", async (req, res, next) => {
+  try {
+    let memberId;
+    if (req.query.memberId) {
+      if (!mongoose.isValidObjectId(req.query.memberId)) {
+        return res.status(400).json({ error: "Member selection is invalid." });
+      }
+      const member = await Member.exists({ _id: req.query.memberId, isActive: true });
+      if (!member) return res.status(404).json({ error: "Member not found." });
+      memberId = String(req.query.memberId);
+    }
+
+    const notes = await AppreciationNote.find({ status: "approved" })
+      .populate({ path: "author", select: "name imageUrl" })
+      .populate({ path: "recipient", select: "name imageUrl" })
+      .sort({ pinned: -1, createdAt: -1 })
+      .lean();
+    const notificationCount = memberId
+      ? await AppreciationNote.countDocuments({
+          recipient: memberId,
+          status: "approved",
+          recipientReadAt: null,
+        })
+      : 0;
+
+    return res.json({
+      notificationCount,
+      notes: notes.map((note) => {
+        const reactionCounts = Object.fromEntries(
+          appreciationReactions.map((type) => [
+            type,
+            note.reactions.filter((reaction) => reaction.type === type).length,
+          ])
+        );
+        return {
+          ...note,
+          author: note.anonymous ? null : note.author,
+          reactions: undefined,
+          reactionCounts,
+          myReactions: memberId
+            ? note.reactions
+                .filter((reaction) => String(reaction.member) === memberId)
+                .map((reaction) => reaction.type)
+            : [],
+          forMe: memberId === String(note.recipient?._id),
+        };
+      }),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/appreciation-wall", async (req, res, next) => {
+  try {
+    const { memberId, recipientId, category, message, anonymous = false } = req.body || {};
+    if (!mongoose.isValidObjectId(memberId) || !mongoose.isValidObjectId(recipientId)) {
+      return res.status(400).json({ error: "Choose your profile and the friend you’re writing to." });
+    }
+    if (typeof category !== "string" || !appreciationCategories.includes(category)) {
+      return res.status(400).json({ error: "Choose a valid message category." });
+    }
+    if (typeof message !== "string" || !message.trim() || message.trim().length > 1000) {
+      return res.status(400).json({ error: "Write a message between 1 and 1,000 characters." });
+    }
+    if (typeof anonymous !== "boolean") {
+      return res.status(400).json({ error: "Anonymous must be true or false." });
+    }
+
+    const activeMembers = await Member.find({
+      _id: { $in: [memberId, recipientId] },
+      isActive: true,
+    }).select("_id");
+    if (new Set(activeMembers.map((member) => String(member._id))).size !== 2) {
+      return res.status(404).json({ error: "One or both selected members could not be found." });
+    }
+
+    const note = await AppreciationNote.create({
+      author: memberId,
+      recipient: recipientId,
+      category,
+      message: message.trim(),
+      anonymous,
+    });
+    return res.status(201).json({
+      message: "Your note was submitted for admin approval.",
+      noteId: note._id,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/appreciation-wall/:id/reactions", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Appreciation note not found." });
+    }
+    const { memberId, type } = req.body || {};
+    if (!mongoose.isValidObjectId(memberId) || !appreciationReactions.includes(type)) {
+      return res.status(400).json({ error: "Choose your member profile and a valid reaction." });
+    }
+    const member = await Member.exists({ _id: memberId, isActive: true });
+    if (!member) return res.status(404).json({ error: "Member not found." });
+
+    const note = await AppreciationNote.findOne({
+      _id: req.params.id,
+      status: "approved",
+    });
+    if (!note) return res.status(404).json({ error: "Appreciation note not found." });
+    const existingIndex = note.reactions.findIndex(
+      (reaction) => String(reaction.member) === String(memberId) && reaction.type === type
+    );
+    if (existingIndex >= 0) note.reactions.splice(existingIndex, 1);
+    else note.reactions.push({ member: memberId, type });
+    await note.save();
+
+    return res.json({
+      reactionCounts: Object.fromEntries(
+        appreciationReactions.map((reactionType) => [
+          reactionType,
+          note.reactions.filter((reaction) => reaction.type === reactionType).length,
+        ])
+      ),
+      myReactions: note.reactions
+        .filter((reaction) => String(reaction.member) === String(memberId))
+        .map((reaction) => reaction.type),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/appreciation-wall/notifications/read", async (req, res, next) => {
+  try {
+    const { memberId } = req.body || {};
+    if (!mongoose.isValidObjectId(memberId)) {
+      return res.status(400).json({ error: "Choose your member profile." });
+    }
+    const member = await Member.exists({ _id: memberId, isActive: true });
+    if (!member) return res.status(404).json({ error: "Member not found." });
+    await AppreciationNote.updateMany(
+      { recipient: memberId, status: "approved", recipientReadAt: null },
+      { $set: { recipientReadAt: new Date() } }
+    );
+    return res.json({ notificationCount: 0 });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get("/awards", async (req, res, next) => {
   try {
     const awards = await Award.find().populate({
@@ -503,6 +658,69 @@ router.get("/media/:id", async (req, res, next) => {
 });
 
 router.use("/admin", requireAdmin);
+
+router.get("/admin/appreciation-wall", async (req, res, next) => {
+  try {
+    const notes = await AppreciationNote.find()
+      .populate({ path: "author", select: "name" })
+      .populate({ path: "recipient", select: "name" })
+      .sort({ status: 1, createdAt: -1 })
+      .lean();
+    return res.json(notes);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/admin/appreciation-wall/:id/approve", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Appreciation note not found." });
+    }
+    const note = await AppreciationNote.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status: "approved" } },
+      { new: true, runValidators: true }
+    );
+    if (!note) return res.status(404).json({ error: "Appreciation note not found." });
+    return res.json(note);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/admin/appreciation-wall/:id/pin", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Appreciation note not found." });
+    }
+    if (typeof req.body?.pinned !== "boolean") {
+      return res.status(400).json({ error: "Pinned must be true or false." });
+    }
+    const note = await AppreciationNote.findOneAndUpdate(
+      { _id: req.params.id, status: "approved" },
+      { $set: { pinned: req.body.pinned } },
+      { new: true, runValidators: true }
+    );
+    if (!note) return res.status(404).json({ error: "Approved appreciation note not found." });
+    return res.json(note);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/admin/appreciation-wall/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Appreciation note not found." });
+    }
+    const note = await AppreciationNote.findByIdAndDelete(req.params.id);
+    if (!note) return res.status(404).json({ error: "Appreciation note not found." });
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get("/admin/memory-lane", async (req, res, next) => {
   try {
