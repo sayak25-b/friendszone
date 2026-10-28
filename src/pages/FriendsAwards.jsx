@@ -67,7 +67,6 @@ export default function FriendsAwards() {
     setVoterId(nextVoterId);
     setSelectedNominees({});
     setSubmittedAwards({});
-    setLoading(true);
     setError("");
     setNotice("");
     if (nextVoterId) localStorage.setItem(VOTER_KEY, nextVoterId);
