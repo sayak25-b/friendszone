@@ -266,7 +266,7 @@ export default function FriendsAwards() {
                     </ol>
                   ) : submittedAwards[award._id] ? (
                     <p role="status" className="flex items-center gap-2 p-6 text-sm font-semibold text-emerald-700">
-                      <CheckCircle2 size={17} /> Your votes are recorded privately.
+                      <CheckCircle2 size={17} /> Your votes are recorded privately. No votes remaining.
                     </p>
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
