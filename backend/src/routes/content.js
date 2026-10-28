@@ -318,6 +318,7 @@ router.get("/awards", async (req, res, next) => {
     }
 
     const votesUsedByAward = new Map();
+    const votesByNomineeByAward = new Map();
     if (req.query.memberId) {
       if (!mongoose.isValidObjectId(req.query.memberId)) {
         return res.status(400).json({ error: "Member selection is invalid." });
@@ -329,7 +330,14 @@ router.get("/awards", async (req, res, next) => {
         award: { $in: awards.map((award) => award._id) },
       }).select("award nominee").lean();
       for (const ballot of ballots) {
-        votesUsedByAward.set(String(ballot.award), ballotNomineeIds(ballot).length);
+        const awardId = String(ballot.award);
+        const nomineeIds = ballotNomineeIds(ballot);
+        votesUsedByAward.set(awardId, nomineeIds.length);
+        const nomineeCounts = {};
+        for (const nomineeId of nomineeIds) {
+          nomineeCounts[nomineeId] = (nomineeCounts[nomineeId] || 0) + 1;
+        }
+        votesByNomineeByAward.set(awardId, nomineeCounts);
       }
     }
 
@@ -339,7 +347,10 @@ router.get("/awards", async (req, res, next) => {
         ...award,
         closed,
         votesUsed: votesUsedByAward.get(String(award._id)) || 0,
-        votesRemaining: Math.max(0, 2 - (votesUsedByAward.get(String(award._id)) || 0)),
+        votesRemaining: Math.max(0, 4 - (votesUsedByAward.get(String(award._id)) || 0)),
+        votesByNominee: req.query.memberId
+          ? votesByNomineeByAward.get(String(award._id)) || {}
+          : undefined,
         results: closed
           ? award.nominees.map((nominee) => ({
               nomineeId: String(nominee._id),
@@ -367,11 +378,15 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     if (
       !Array.isArray(nomineeIds) ||
       nomineeIds.length < 1 ||
-      nomineeIds.length > 2 ||
+      nomineeIds.length > 4 ||
       nomineeIds.some((id) => !mongoose.isValidObjectId(id)) ||
-      new Set(nomineeIds.map(String)).size !== nomineeIds.length
+      new Set(nomineeIds.map(String)).size > 3 ||
+      [...new Set(nomineeIds.map(String))]
+        .some((id) => nomineeIds.filter((nomineeId) => String(nomineeId) === id).length > 2)
     ) {
-      return res.status(400).json({ error: "Choose one or two different nominees." });
+      return res.status(400).json({
+        error: "Choose up to four votes across three nominees, with no more than two votes per nominee.",
+      });
     }
     nomineeIds = nomineeIds.map((id) => new mongoose.Types.ObjectId(id));
     const [award, voter] = await Promise.all([
@@ -420,6 +435,11 @@ router.post("/awards/:id/votes", async (req, res, next) => {
         { $cond: [{ $eq: [{ $type: "$nominee" }, "missing"] }, [], ["$nominee"]] },
       ],
     };
+    const incomingCounts = new Map();
+    for (const nomineeId of nomineeIds) {
+      const id = String(nomineeId);
+      incomingCounts.set(id, (incomingCounts.get(id) || 0) + 1);
+    }
     const ballot = await AwardVote.findOneAndUpdate(
       {
         award: award._id,
@@ -428,20 +448,36 @@ router.post("/awards/:id/votes", async (req, res, next) => {
           $and: [
             {
               $lte: [
-                { $size: { $setUnion: [existingNominees, nomineeIds] } },
-                2,
+                { $add: [{ $size: existingNominees }, nomineeIds.length] },
+                4,
               ],
             },
             {
-              $eq: [
-                { $size: { $setIntersection: [existingNominees, nomineeIds] } },
-                0,
-              ],
+              $lte: [{ $size: { $setUnion: [existingNominees, nomineeIds] } }, 3],
             },
+            ...[...incomingCounts.entries()].map(([id, incomingCount]) => ({
+              $lte: [
+                {
+                  $add: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: existingNominees,
+                          as: "existingNominee",
+                          cond: { $eq: ["$$existingNominee", new mongoose.Types.ObjectId(id)] },
+                        },
+                      },
+                    },
+                    incomingCount,
+                  ],
+                },
+                2,
+              ],
+            })),
           ],
         },
       },
-      { $addToSet: { nominee: { $each: nomineeIds } } },
+      { $push: { nominee: { $each: nomineeIds } } },
       { new: true, runValidators: true }
     );
     if (ballot) {
@@ -462,13 +498,19 @@ router.post("/awards/:id/votes", async (req, res, next) => {
         voter: voter._id,
       }).select("nominee").lean();
       const currentNominees = currentBallot ? ballotNomineeIds(currentBallot) : [];
-      if (nomineeIds.some((id) => currentNominees.includes(String(id)))) {
-        return res.status(409).json({
-          error: "One or more selected nominees were already chosen. Your existing votes remain private.",
-        });
+      if (currentNominees.length + nomineeIds.length > 4) {
+        return res.status(409).json({ error: "You can cast only four votes per award." });
       }
-      if (currentNominees.length + nomineeIds.length > 2) {
-        return res.status(409).json({ error: "You can vote for only two different nominees per award." });
+      const combinedNominees = [...currentNominees, ...nomineeIds.map(String)];
+      const combinedCounts = new Map();
+      for (const id of combinedNominees) {
+        combinedCounts.set(id, (combinedCounts.get(id) || 0) + 1);
+      }
+      if (combinedCounts.size > 3) {
+        return res.status(409).json({ error: "You can vote for only three different nominees per award." });
+      }
+      if ([...combinedCounts.values()].some((count) => count > 2)) {
+        return res.status(409).json({ error: "You can give a nominee no more than two votes per award." });
       }
       return res.status(409).json({ error: "Your ballot changed. Please refresh and try again." });
     }

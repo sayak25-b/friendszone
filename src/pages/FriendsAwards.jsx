@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, CheckCircle2, Medal, Sparkles, Trophy } from "lucide-react";
+import { CalendarDays, CheckCircle2, Medal, Minus, Plus, Sparkles, Trophy } from "lucide-react";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 
 const VOTER_KEY = "friendszone-awards-voter";
@@ -146,7 +146,7 @@ export default function FriendsAwards() {
           <div>
             <h2 className="font-bold text-slate-900">Who’s voting?</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Select your member profile. You can vote for up to two different people in each category, but not yourself. This name selection is not a sign-in, so please vote honestly.
+              Select your member profile. You can cast four votes in each category across up to three different people, with no more than two votes for one person. You can’t vote for yourself. This name selection is not a sign-in, so please vote honestly.
             </p>
           </div>
           <select
@@ -200,8 +200,9 @@ export default function FriendsAwards() {
             <div className="grid gap-6 lg:grid-cols-2">
               {awards.map((award) => {
               const selectedForAward = selectedNominees[award._id] || [];
-              const votesRemaining = award.votesRemaining ?? 2;
-              const votesUsed = award.votesUsed ?? 2 - votesRemaining;
+              const votesRemaining = award.votesRemaining ?? 4;
+              const votesUsed = award.votesUsed ?? 4 - votesRemaining;
+              const votesByNominee = award.votesByNominee || {};
               const resultByNominee = new Map(
                 (award.results || []).map((result) => [result.nomineeId, result.votes])
               );
@@ -248,43 +249,71 @@ export default function FriendsAwards() {
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
                       <p className="text-sm font-semibold text-slate-500">
                         {votesUsed === 0
-                          ? "No votes used yet · 2 votes remaining"
-                          : `${votesUsed} of 2 votes used · ${votesRemaining} remaining`}
+                          ? "No votes used yet · 4 votes remaining"
+                          : `${votesUsed} of 4 votes used · ${votesRemaining} remaining`}
                       </p>
-                      {award.nominees.map((nominee) => (
-                        <label key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${String(voterId) === String(nominee._id) ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : "cursor-pointer"} ${selectedForAward.includes(String(nominee._id)) ? "border-violet-400 bg-violet-50" : "border-slate-100 hover:border-violet-200 hover:bg-violet-50/50"}`}>
-                          <input
-                            type="checkbox"
-                            value={nominee._id}
-                            checked={selectedForAward.includes(String(nominee._id))}
-                            onChange={(event) => {
-                              const nomineeId = String(nominee._id);
-                              setSelectedNominees((current) => {
-                                const selected = current[award._id] || [];
-                                if (event.target.checked && selected.length < votesRemaining) {
-                                  return { ...current, [award._id]: [...selected, nomineeId] };
-                                }
-                                return {
-                                  ...current,
-                                  [award._id]: selected.filter((id) => id !== nomineeId),
-                                };
-                              });
-                            }}
-                            disabled={
-                              !voterId ||
-                              String(voterId) === String(nominee._id) ||
-                              (!selectedForAward.includes(String(nominee._id)) &&
-                                selectedForAward.length >= votesRemaining)
-                            }
-                            className="h-4 w-4 accent-violet-600"
-                          />
-                          {nominee.imageUrl && <img src={apiAssetUrl(nominee.imageUrl)} alt="" className="h-10 w-10 rounded-full object-cover" />}
-                          <span className="flex-1 font-semibold text-slate-800">{nominee.name}{String(voterId) === String(nominee._id) ? " (you)" : ""}</span>
-                          {String(voterId) === String(nominee._id) && <span className="text-xs font-semibold text-slate-500">Can’t vote for yourself</span>}
-                        </label>
-                      ))}
+                      {award.nominees.map((nominee) => {
+                        const nomineeId = String(nominee._id);
+                        const savedCount = votesByNominee[nomineeId] || 0;
+                        const selectedCount = selectedForAward.filter((id) => id === nomineeId).length;
+                        const nomineeVoteCount = savedCount + selectedCount;
+                        const combinedNomineeCount = new Set([
+                          ...Object.keys(votesByNominee),
+                          ...selectedForAward,
+                        ]).size;
+                        const isSelf = String(voterId) === nomineeId;
+                        const canAddVote =
+                          Boolean(voterId) &&
+                          !isSelf &&
+                          votesRemaining > selectedForAward.length &&
+                          nomineeVoteCount < 2 &&
+                          (nomineeVoteCount > 0 || combinedNomineeCount < 3);
+                        return (
+                          <div key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${isSelf ? "border-slate-100 bg-slate-50 opacity-60" : nomineeVoteCount ? "border-violet-400 bg-violet-50" : "border-slate-100"}`}>
+                            {nominee.imageUrl && <img src={apiAssetUrl(nominee.imageUrl)} alt="" className="h-10 w-10 rounded-full object-cover" />}
+                            <span className="flex-1 font-semibold text-slate-800">{nominee.name}{isSelf ? " (you)" : ""}</span>
+                            {!isSelf && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  aria-label={`Remove a vote for ${nominee.name}`}
+                                  onClick={() => setSelectedNominees((current) => {
+                                    const selected = current[award._id] || [];
+                                    const selectedIndex = selected.lastIndexOf(nomineeId);
+                                    if (selectedIndex === -1) return current;
+                                    return {
+                                      ...current,
+                                      [award._id]: selected.filter((_, index) => index !== selectedIndex),
+                                    };
+                                  })}
+                                  disabled={!selectedCount}
+                                  className="rounded-lg border border-violet-200 p-2 text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Minus size={16} />
+                                </button>
+                                <span className="min-w-8 text-center text-sm font-bold text-slate-700" aria-label={`${nomineeVoteCount} votes for ${nominee.name}`}>
+                                  {nomineeVoteCount}/2
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label={`Add a vote for ${nominee.name}`}
+                                  onClick={() => setSelectedNominees((current) => ({
+                                    ...current,
+                                    [award._id]: [...(current[award._id] || []), nomineeId],
+                                  }))}
+                                  disabled={!canAddVote}
+                                  className="rounded-lg border border-violet-200 p-2 text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Plus size={16} />
+                                </button>
+                              </div>
+                            )}
+                            {isSelf && <span className="text-xs font-semibold text-slate-500">Can’t vote for yourself</span>}
+                          </div>
+                        );
+                      })}
                       {votesRemaining === 0 ? (
-                        <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> Your two votes are recorded privately.</p>
+                        <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> Your four votes are recorded privately.</p>
                       ) : (
                         <button
                           type="submit"
