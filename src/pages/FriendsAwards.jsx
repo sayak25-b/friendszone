@@ -269,18 +269,21 @@ export default function FriendsAwards() {
                         <CheckCircle2 size={17} /> Your votes are recorded privately.
                       </p>
                       <p>
-                        {votesUsed} of 4 votes cast · {votesUsed === 4 ? "No votes remaining." : "Optional fourth vote not used."}
+                        {votesUsed} votes used · {4 - votesUsed} remaining
                       </p>
                     </div>
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
-                      <p className="text-sm font-semibold text-slate-500">
+                      <div className="space-y-1 text-sm font-semibold text-slate-500">
+                        <p>{votesUsed} votes used · {4 - votesUsed} remaining</p>
+                        <p>
                         {votesUsed < 3
                           ? `${votesUsed} of 3 nominees selected`
                           : votesUsed === 3
                             ? "3 nominees selected · Optional fourth vote available"
                             : "4 of 4 votes selected"}
-                      </p>
+                        </p>
+                      </div>
                       {award.nominees.map((nominee) => {
                         const nomineeId = String(nominee._id);
                         const nomineeVoteCount = selectedCounts.get(nomineeId) || 0;
