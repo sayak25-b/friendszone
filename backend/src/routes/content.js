@@ -335,6 +335,32 @@ router.get("/awards", async (req, res, next) => {
   }
 });
 
+router.get("/awards/vote-status", async (req, res, next) => {
+  try {
+    const { memberId } = req.query;
+    if (!mongoose.isValidObjectId(memberId)) {
+      return res.status(400).json({ error: "Member selection is invalid." });
+    }
+    const member = await Member.exists({ _id: memberId, isActive: true });
+    if (!member) return res.status(404).json({ error: "Member not found." });
+
+    const ballots = await AwardVote.find({ voter: memberId })
+      .select("award nominee")
+      .lean();
+    const votesByAward = {};
+    for (const ballot of ballots) {
+      const votesUsed = ballotNomineeIds(ballot).length;
+      votesByAward[String(ballot.award)] = {
+        votesUsed,
+        votesRemaining: Math.max(0, 4 - votesUsed),
+      };
+    }
+    return res.json({ votesByAward });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post("/awards/:id/votes", async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {

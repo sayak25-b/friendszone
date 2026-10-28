@@ -20,7 +20,10 @@ export default function FriendsAwards() {
   const [voterId, setVoterId] = useState(() => localStorage.getItem(VOTER_KEY) || "");
   const [awards, setAwards] = useState([]);
   const [selectedNominees, setSelectedNominees] = useState({});
-  const [submittedAwards, setSubmittedAwards] = useState({});
+  const [voteStatus, setVoteStatus] = useState({});
+  const [voteStatusLoading, setVoteStatusLoading] = useState(() =>
+    Boolean(localStorage.getItem(VOTER_KEY))
+  );
   const [loading, setLoading] = useState(true);
   const [membersLoading, setMembersLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,11 +65,29 @@ export default function FriendsAwards() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    if (!voterId) return undefined;
+
+    const controller = new AbortController();
+    apiRequest(`/awards/vote-status?memberId=${encodeURIComponent(voterId)}`, {
+      signal: controller.signal,
+    })
+      .then((result) => setVoteStatus(result.votesByAward || {}))
+      .catch((loadError) => {
+        if (!controller.signal.aborted) setError(loadError.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setVoteStatusLoading(false);
+      });
+    return () => controller.abort();
+  }, [voterId]);
+
   function changeVoter(event) {
     const nextVoterId = event.target.value;
     setVoterId(nextVoterId);
     setSelectedNominees({});
-    setSubmittedAwards({});
+    setVoteStatus({});
+    setVoteStatusLoading(Boolean(nextVoterId));
     setError("");
     setNotice("");
     if (nextVoterId) localStorage.setItem(VOTER_KEY, nextVoterId);
@@ -96,7 +117,13 @@ export default function FriendsAwards() {
         body: { voterId, nomineeIds },
       });
       setNotice("Your votes are in! Thanks for celebrating your friends.");
-      setSubmittedAwards((current) => ({ ...current, [awardId]: true }));
+      setVoteStatus((current) => ({
+        ...current,
+        [awardId]: {
+          votesUsed: nomineeIds.length,
+          votesRemaining: 4 - nomineeIds.length,
+        },
+      }));
     } catch (voteError) {
       setError(voteError.message);
     } finally {
@@ -130,6 +157,7 @@ export default function FriendsAwards() {
       second.awards.length - first.awards.length ||
       first.member.name.localeCompare(second.member.name)
   );
+  const isVoteStatusLoading = Boolean(voterId) && voteStatusLoading;
 
   return (
     <main className="min-h-screen bg-[#faf8ff]">
@@ -213,6 +241,10 @@ export default function FriendsAwards() {
                 selectedCounts.set(nomineeId, (selectedCounts.get(nomineeId) || 0) + 1);
               }
               const votesUsed = selectedForAward.length;
+              const status = voteStatus[award._id];
+              const displayedVotesUsed = status?.votesUsed ?? votesUsed;
+              const votesRemaining = status?.votesRemaining ?? 4 - votesUsed;
+              const hasSubmittedBallot = status?.votesUsed > 0;
               const hasDoubleVote = [...selectedCounts.values()].includes(2);
               const ballotCounts = [...selectedCounts.values()].sort();
               const isValidBallot =
@@ -263,26 +295,21 @@ export default function FriendsAwards() {
                           );
                         })}
                     </ol>
-                  ) : submittedAwards[award._id] ? (
+                  ) : hasSubmittedBallot ? (
                     <div role="status" className="space-y-2 p-6 text-sm font-semibold text-emerald-700">
                       <p className="flex items-center gap-2">
                         <CheckCircle2 size={17} /> Your votes are recorded privately.
                       </p>
                       <p>
-                        {votesUsed} votes used · {4 - votesUsed} remaining
+                        {displayedVotesUsed} votes used · {votesRemaining} remaining
                       </p>
                     </div>
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
-                      <div className="space-y-1 text-sm font-semibold text-slate-500">
-                        <p>{votesUsed} votes used · {4 - votesUsed} remaining</p>
-                        <p>
-                        {votesUsed < 3
-                          ? `${votesUsed} of 3 nominees selected`
-                          : votesUsed === 3
-                            ? "3 nominees selected · Optional fourth vote available"
-                            : "4 of 4 votes selected"}
-                        </p>
+                      <div className="text-sm font-semibold text-slate-500">
+                        {isVoteStatusLoading
+                          ? "Loading your vote status…"
+                          : `${votesUsed} votes used · ${4 - votesUsed} remaining`}
                       </div>
                       {award.nominees.map((nominee) => {
                         const nomineeId = String(nominee._id);
@@ -330,7 +357,7 @@ export default function FriendsAwards() {
                                     ...current,
                                     [award._id]: [...(current[award._id] || []), nomineeId],
                                   }))}
-                                  disabled={!canAddVote}
+                                  disabled={!canAddVote || isVoteStatusLoading}
                                   className="rounded-lg border border-violet-200 p-2 text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   <Plus size={16} />
@@ -343,7 +370,7 @@ export default function FriendsAwards() {
                       })}
                       <button
                         type="submit"
-                        disabled={!voterId || !isValidBallot || submittingId === award._id}
+                        disabled={!voterId || !isValidBallot || submittingId === award._id || isVoteStatusLoading}
                         className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Trophy size={17} />
