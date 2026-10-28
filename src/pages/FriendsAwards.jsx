@@ -20,6 +20,7 @@ export default function FriendsAwards() {
   const [voterId, setVoterId] = useState(() => localStorage.getItem(VOTER_KEY) || "");
   const [awards, setAwards] = useState([]);
   const [selectedNominees, setSelectedNominees] = useState({});
+  const [submittedAwards, setSubmittedAwards] = useState({});
   const [loading, setLoading] = useState(true);
   const [membersLoading, setMembersLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,20 +51,8 @@ export default function FriendsAwards() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const query = voterId ? `?memberId=${encodeURIComponent(voterId)}` : "";
-    apiRequest(`/awards${query}`, { signal: controller.signal })
-      .then((result) => {
-        setAwards(result);
-        setSelectedNominees((current) => {
-          const next = { ...current };
-          for (const award of result) {
-            if (Object.hasOwn(next, award._id)) continue;
-            next[award._id] = Object.entries(award.votesByNominee || {})
-              .flatMap(([nomineeId, count]) => Array(count).fill(nomineeId));
-          }
-          return next;
-        });
-      })
+    apiRequest("/awards", { signal: controller.signal })
+      .then(setAwards)
       .catch((loadError) => {
         if (!controller.signal.aborted) setError(loadError.message);
       })
@@ -71,12 +60,13 @@ export default function FriendsAwards() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [voterId]);
+  }, []);
 
   function changeVoter(event) {
     const nextVoterId = event.target.value;
     setVoterId(nextVoterId);
     setSelectedNominees({});
+    setSubmittedAwards({});
     setLoading(true);
     setError("");
     setNotice("");
@@ -107,8 +97,8 @@ export default function FriendsAwards() {
         body: { voterId, nomineeIds },
       });
       setNotice("Your votes are in! Thanks for celebrating your friends.");
-      const query = `?memberId=${encodeURIComponent(voterId)}`;
-      setAwards(await apiRequest(`/awards${query}`));
+      setSelectedNominees((current) => ({ ...current, [awardId]: [] }));
+      setSubmittedAwards((current) => ({ ...current, [awardId]: true }));
     } catch (voteError) {
       setError(voteError.message);
     } finally {
@@ -219,21 +209,13 @@ export default function FriendsAwards() {
             )}
             <div className="grid gap-6 lg:grid-cols-2">
               {awards.map((award) => {
-              const selectedForAward = selectedNominees[award._id] ??
-                Object.entries(award.votesByNominee || {})
-                  .flatMap(([nomineeId, count]) => Array(count).fill(nomineeId));
-              const votesByNominee = award.votesByNominee || {};
+              const selectedForAward = selectedNominees[award._id] || [];
               const selectedCounts = new Map();
               for (const nomineeId of selectedForAward) {
                 selectedCounts.set(nomineeId, (selectedCounts.get(nomineeId) || 0) + 1);
               }
-              const savedCounts = Object.values(votesByNominee).sort();
-              const savedIsComplete =
-                savedCounts.length === 3 &&
-                savedCounts[0] === 1 &&
-                savedCounts[1] === 1 &&
-                savedCounts[2] === 2;
               const votesUsed = selectedForAward.length;
+              const hasDoubleVote = [...selectedCounts.values()].includes(2);
               const ballotCounts = [...selectedCounts.values()].sort();
               const hasCompleteBallot =
                 selectedForAward.length === 4 &&
@@ -283,6 +265,10 @@ export default function FriendsAwards() {
                           );
                         })}
                     </ol>
+                  ) : submittedAwards[award._id] ? (
+                    <p role="status" className="flex items-center gap-2 p-6 text-sm font-semibold text-emerald-700">
+                      <CheckCircle2 size={17} /> Your votes are recorded privately.
+                    </p>
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
                       <p className="text-sm font-semibold text-slate-500">
@@ -296,10 +282,10 @@ export default function FriendsAwards() {
                         const isSelf = String(voterId) === nomineeId;
                         const canAddVote =
                           Boolean(voterId) &&
-                          !savedIsComplete &&
                           !isSelf &&
                           selectedForAward.length < 4 &&
                           nomineeVoteCount < 2 &&
+                          (!hasDoubleVote || nomineeVoteCount === 0) &&
                           (nomineeVoteCount > 0 || selectedNomineeCount < 3);
                         return (
                           <div key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${isSelf ? "border-slate-100 bg-slate-50 opacity-60" : nomineeVoteCount ? "border-violet-400 bg-violet-50" : "border-slate-100"}`}>
@@ -319,7 +305,7 @@ export default function FriendsAwards() {
                                       [award._id]: selected.filter((_, index) => index !== selectedIndex),
                                     };
                                   })}
-                                  disabled={!selectedCount || savedIsComplete}
+                                  disabled={!selectedCount}
                                   className="rounded-lg border border-violet-200 p-2 text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   <Minus size={16} />
@@ -345,18 +331,14 @@ export default function FriendsAwards() {
                           </div>
                         );
                       })}
-                      {savedIsComplete ? (
-                        <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> Your votes are recorded privately.</p>
-                      ) : (
-                        <button
-                          type="submit"
-                          disabled={!voterId || !hasCompleteBallot || submittingId === award._id}
-                          className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Trophy size={17} />
-                          {submittingId === award._id ? "Submitting…" : "Cast my vote"}
-                        </button>
-                      )}
+                      <button
+                        type="submit"
+                        disabled={!voterId || !hasCompleteBallot || submittingId === award._id}
+                        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trophy size={17} />
+                        {submittingId === award._id ? "Submitting…" : "Cast my vote"}
+                      </button>
                     </form>
                   )}
                 </article>

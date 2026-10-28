@@ -317,40 +317,11 @@ router.get("/awards", async (req, res, next) => {
       resultsByAward.get(awardId)[String(count._id.nominee)] = count.votes;
     }
 
-    const votesUsedByAward = new Map();
-    const votesByNomineeByAward = new Map();
-    if (req.query.memberId) {
-      if (!mongoose.isValidObjectId(req.query.memberId)) {
-        return res.status(400).json({ error: "Member selection is invalid." });
-      }
-      const member = await Member.exists({ _id: req.query.memberId, isActive: true });
-      if (!member) return res.status(404).json({ error: "Member not found." });
-      const ballots = await AwardVote.find({
-        voter: req.query.memberId,
-        award: { $in: awards.map((award) => award._id) },
-      }).select("award nominee").lean();
-      for (const ballot of ballots) {
-        const awardId = String(ballot.award);
-        const nomineeIds = ballotNomineeIds(ballot);
-        votesUsedByAward.set(awardId, nomineeIds.length);
-        const nomineeCounts = {};
-        for (const nomineeId of nomineeIds) {
-          nomineeCounts[nomineeId] = (nomineeCounts[nomineeId] || 0) + 1;
-        }
-        votesByNomineeByAward.set(awardId, nomineeCounts);
-      }
-    }
-
     return res.json(awards.map((award) => {
       const closed = award.closesAt <= now;
       return {
         ...award,
         closed,
-        votesUsed: votesUsedByAward.get(String(award._id)) || 0,
-        votesRemaining: Math.max(0, 4 - (votesUsedByAward.get(String(award._id)) || 0)),
-        votesByNominee: req.query.memberId
-          ? votesByNomineeByAward.get(String(award._id)) || {}
-          : undefined,
         results: closed
           ? award.nominees.map((nominee) => ({
               nomineeId: String(nominee._id),
@@ -436,7 +407,7 @@ router.post("/awards/:id/votes", async (req, res, next) => {
         savedCounts[1] === 1 &&
         savedCounts[2] === 2;
       if (isCompleteBallot) {
-        return res.status(409).json({ error: "Your votes for this category have already been recorded." });
+        return res.status(409).json({ error: "Votes for this category have already been submitted." });
       }
       await AwardVote.updateOne(
         { award: award._id, voter: voter._id },
