@@ -52,7 +52,18 @@ export default function FriendsAwards() {
     const controller = new AbortController();
     const query = voterId ? `?memberId=${encodeURIComponent(voterId)}` : "";
     apiRequest(`/awards${query}`, { signal: controller.signal })
-      .then(setAwards)
+      .then((result) => {
+        setAwards(result);
+        setSelectedNominees((current) => {
+          const next = { ...current };
+          for (const award of result) {
+            if (Object.hasOwn(next, award._id)) continue;
+            next[award._id] = Object.entries(award.votesByNominee || {})
+              .flatMap(([nomineeId, count]) => Array(count).fill(nomineeId));
+          }
+          return next;
+        });
+      })
       .catch((loadError) => {
         if (!controller.signal.aborted) setError(loadError.message);
       })
@@ -76,7 +87,17 @@ export default function FriendsAwards() {
   async function castVote(event, awardId) {
     event.preventDefault();
     const nomineeIds = selectedNominees[awardId] || [];
-    if (!voterId || !nomineeIds.length) return;
+    const counts = [...new Set(nomineeIds)].map(
+      (nomineeId) => nomineeIds.filter((id) => id === nomineeId).length
+    ).sort();
+    if (
+      !voterId ||
+      nomineeIds.length !== 4 ||
+      new Set(nomineeIds).size !== 3 ||
+      counts[0] !== 1 ||
+      counts[1] !== 1 ||
+      counts[2] !== 2
+    ) return;
     setSubmittingId(awardId);
     setError("");
     setNotice("");
@@ -85,8 +106,7 @@ export default function FriendsAwards() {
         method: "POST",
         body: { voterId, nomineeIds },
       });
-      setNotice("Your vote(s) are in! Thanks for celebrating your friends.");
-      setSelectedNominees((current) => ({ ...current, [awardId]: [] }));
+      setNotice("Your votes are in! Thanks for celebrating your friends.");
       const query = `?memberId=${encodeURIComponent(voterId)}`;
       setAwards(await apiRequest(`/awards${query}`));
     } catch (voteError) {
@@ -146,7 +166,7 @@ export default function FriendsAwards() {
           <div>
             <h2 className="font-bold text-slate-900">Who’s voting?</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Select your member profile. You can cast four votes in each category across up to three different people, with no more than two votes for one person. You can’t vote for yourself. This name selection is not a sign-in, so please vote honestly.
+              Select your member profile. In each category, vote for exactly three people: give two votes to one person and one vote to each of the other two. You can’t vote for yourself. This name selection is not a sign-in, so please vote honestly.
             </p>
           </div>
           <select
@@ -199,10 +219,28 @@ export default function FriendsAwards() {
             )}
             <div className="grid gap-6 lg:grid-cols-2">
               {awards.map((award) => {
-              const selectedForAward = selectedNominees[award._id] || [];
-              const votesRemaining = award.votesRemaining ?? 4;
-              const votesUsed = award.votesUsed ?? 4 - votesRemaining;
+              const selectedForAward = selectedNominees[award._id] ??
+                Object.entries(award.votesByNominee || {})
+                  .flatMap(([nomineeId, count]) => Array(count).fill(nomineeId));
               const votesByNominee = award.votesByNominee || {};
+              const selectedCounts = new Map();
+              for (const nomineeId of selectedForAward) {
+                selectedCounts.set(nomineeId, (selectedCounts.get(nomineeId) || 0) + 1);
+              }
+              const savedCounts = Object.values(votesByNominee).sort();
+              const savedIsComplete =
+                savedCounts.length === 3 &&
+                savedCounts[0] === 1 &&
+                savedCounts[1] === 1 &&
+                savedCounts[2] === 2;
+              const votesUsed = selectedForAward.length;
+              const ballotCounts = [...selectedCounts.values()].sort();
+              const hasCompleteBallot =
+                selectedForAward.length === 4 &&
+                selectedCounts.size === 3 &&
+                ballotCounts[0] === 1 &&
+                ballotCounts[1] === 1 &&
+                ballotCounts[2] === 2;
               const resultByNominee = new Map(
                 (award.results || []).map((result) => [result.nomineeId, result.votes])
               );
@@ -248,26 +286,21 @@ export default function FriendsAwards() {
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
                       <p className="text-sm font-semibold text-slate-500">
-                        {votesUsed === 0
-                          ? "No votes used yet · 4 votes remaining"
-                          : `${votesUsed} of 4 votes used · ${votesRemaining} remaining`}
+                        {`${votesUsed} of 4 votes selected · ${4 - votesUsed} remaining`}
                       </p>
                       {award.nominees.map((nominee) => {
                         const nomineeId = String(nominee._id);
-                        const savedCount = votesByNominee[nomineeId] || 0;
-                        const selectedCount = selectedForAward.filter((id) => id === nomineeId).length;
-                        const nomineeVoteCount = savedCount + selectedCount;
-                        const combinedNomineeCount = new Set([
-                          ...Object.keys(votesByNominee),
-                          ...selectedForAward,
-                        ]).size;
+                        const nomineeVoteCount = selectedCounts.get(nomineeId) || 0;
+                        const selectedCount = nomineeVoteCount;
+                        const selectedNomineeCount = selectedCounts.size;
                         const isSelf = String(voterId) === nomineeId;
                         const canAddVote =
                           Boolean(voterId) &&
+                          !savedIsComplete &&
                           !isSelf &&
-                          votesRemaining > selectedForAward.length &&
+                          selectedForAward.length < 4 &&
                           nomineeVoteCount < 2 &&
-                          (nomineeVoteCount > 0 || combinedNomineeCount < 3);
+                          (nomineeVoteCount > 0 || selectedNomineeCount < 3);
                         return (
                           <div key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${isSelf ? "border-slate-100 bg-slate-50 opacity-60" : nomineeVoteCount ? "border-violet-400 bg-violet-50" : "border-slate-100"}`}>
                             {nominee.imageUrl && <img src={apiAssetUrl(nominee.imageUrl)} alt="" className="h-10 w-10 rounded-full object-cover" />}
@@ -286,7 +319,7 @@ export default function FriendsAwards() {
                                       [award._id]: selected.filter((_, index) => index !== selectedIndex),
                                     };
                                   })}
-                                  disabled={!selectedCount}
+                                  disabled={!selectedCount || savedIsComplete}
                                   className="rounded-lg border border-violet-200 p-2 text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   <Minus size={16} />
@@ -312,12 +345,12 @@ export default function FriendsAwards() {
                           </div>
                         );
                       })}
-                      {votesRemaining === 0 ? (
-                        <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> Your four votes are recorded privately.</p>
+                      {savedIsComplete ? (
+                        <p className="flex items-center gap-2 pt-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> Your votes are recorded privately.</p>
                       ) : (
                         <button
                           type="submit"
-                          disabled={!voterId || !selectedForAward.length || submittingId === award._id}
+                          disabled={!voterId || !hasCompleteBallot || submittingId === award._id}
                           className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Trophy size={17} />

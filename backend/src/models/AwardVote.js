@@ -9,7 +9,7 @@ const awardVoteSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator: (nominees) => {
-          if (!Array.isArray(nominees) || nominees.length < 1 || nominees.length > 4) {
+          if (!Array.isArray(nominees) || nominees.length !== 4) {
             return false;
           }
           const voteCounts = new Map();
@@ -17,9 +17,10 @@ const awardVoteSchema = new mongoose.Schema(
             const nomineeId = String(nominee);
             voteCounts.set(nomineeId, (voteCounts.get(nomineeId) || 0) + 1);
           }
-          return voteCounts.size <= 3 && [...voteCounts.values()].every((count) => count <= 2);
+          const counts = [...voteCounts.values()].sort();
+          return voteCounts.size === 3 && counts[0] === 1 && counts[1] === 1 && counts[2] === 2;
         },
-        message: "A ballot can include up to four votes for three nominees, with at most two votes per nominee.",
+        message: "A ballot must include three nominees: one with two votes and two with one vote each.",
       },
     },
   },

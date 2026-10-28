@@ -377,15 +377,26 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     }
     if (
       !Array.isArray(nomineeIds) ||
-      nomineeIds.length < 1 ||
-      nomineeIds.length > 4 ||
-      nomineeIds.some((id) => !mongoose.isValidObjectId(id)) ||
-      new Set(nomineeIds.map(String)).size > 3 ||
-      [...new Set(nomineeIds.map(String))]
-        .some((id) => nomineeIds.filter((nomineeId) => String(nomineeId) === id).length > 2)
+      nomineeIds.length !== 4 ||
+      nomineeIds.some((id) => !mongoose.isValidObjectId(id))
     ) {
       return res.status(400).json({
-        error: "Choose up to four votes across three nominees, with no more than two votes per nominee.",
+        error: "Cast four votes across exactly three nominees: two votes for one nominee and one vote for each of the other two.",
+      });
+    }
+    const submittedCounts = new Map();
+    for (const id of nomineeIds.map(String)) {
+      submittedCounts.set(id, (submittedCounts.get(id) || 0) + 1);
+    }
+    const counts = [...submittedCounts.values()].sort();
+    if (
+      submittedCounts.size !== 3 ||
+      counts[0] !== 1 ||
+      counts[1] !== 1 ||
+      counts[2] !== 2
+    ) {
+      return res.status(400).json({
+        error: "Cast four votes across exactly three nominees: two votes for one nominee and one vote for each of the other two.",
       });
     }
     nomineeIds = nomineeIds.map((id) => new mongoose.Types.ObjectId(id));
@@ -412,109 +423,38 @@ router.post("/awards/:id/votes", async (req, res, next) => {
       voter: voter._id,
     }).select("nominee").lean();
     if (existingBallot) {
+      const currentNominees = ballotNomineeIds(existingBallot);
+      const currentCounts = new Map();
+      for (const id of currentNominees) {
+        currentCounts.set(id, (currentCounts.get(id) || 0) + 1);
+      }
+      const savedCounts = [...currentCounts.values()].sort();
+      const isCompleteBallot =
+        currentCounts.size === 3 &&
+        savedCounts.length === 3 &&
+        savedCounts[0] === 1 &&
+        savedCounts[1] === 1 &&
+        savedCounts[2] === 2;
+      if (isCompleteBallot) {
+        return res.status(409).json({ error: "Your votes for this category have already been recorded." });
+      }
       await AwardVote.updateOne(
-        { _id: existingBallot._id, nominee: { $not: { $type: "array" } } },
-        [{
-          $set: {
-            nominee: {
-              $cond: [
-                { $eq: [{ $type: "$nominee" }, "missing"] },
-                [],
-                ["$nominee"],
-              ],
-            },
-          },
-        }]
+        { award: award._id, voter: voter._id },
+        { $set: { nominee: nomineeIds } },
+        { runValidators: true }
       );
+      return res.status(200).json({ message: "Your ballot has been updated." });
     }
-
-    const existingNominees = {
-      $cond: [
-        { $isArray: "$nominee" },
-        "$nominee",
-        { $cond: [{ $eq: [{ $type: "$nominee" }, "missing"] }, [], ["$nominee"]] },
-      ],
-    };
-    const incomingCounts = new Map();
-    for (const nomineeId of nomineeIds) {
-      const id = String(nomineeId);
-      incomingCounts.set(id, (incomingCounts.get(id) || 0) + 1);
-    }
-    const ballot = await AwardVote.findOneAndUpdate(
-      {
-        award: award._id,
-        voter: voter._id,
-        $expr: {
-          $and: [
-            {
-              $lte: [
-                { $add: [{ $size: existingNominees }, nomineeIds.length] },
-                4,
-              ],
-            },
-            {
-              $lte: [{ $size: { $setUnion: [existingNominees, nomineeIds] } }, 3],
-            },
-            ...[...incomingCounts.entries()].map(([id, incomingCount]) => ({
-              $lte: [
-                {
-                  $add: [
-                    {
-                      $size: {
-                        $filter: {
-                          input: existingNominees,
-                          as: "existingNominee",
-                          cond: { $eq: ["$$existingNominee", new mongoose.Types.ObjectId(id)] },
-                        },
-                      },
-                    },
-                    incomingCount,
-                  ],
-                },
-                2,
-              ],
-            })),
-          ],
-        },
-      },
-      { $push: { nominee: { $each: nomineeIds } } },
-      { new: true, runValidators: true }
-    );
-    if (ballot) {
-      return res.status(201).json({ message: "Your votes have been counted." });
-    }
-
-    try {
-      await AwardVote.create({
-        award: award._id,
-        voter: voter._id,
-        nominee: nomineeIds,
-      });
-      return res.status(201).json({ message: "Your votes have been counted." });
-    } catch (error) {
-      if (error.code !== 11000) throw error;
-      const currentBallot = await AwardVote.findOne({
-        award: award._id,
-        voter: voter._id,
-      }).select("nominee").lean();
-      const currentNominees = currentBallot ? ballotNomineeIds(currentBallot) : [];
-      if (currentNominees.length + nomineeIds.length > 4) {
-        return res.status(409).json({ error: "You can cast only four votes per award." });
-      }
-      const combinedNominees = [...currentNominees, ...nomineeIds.map(String)];
-      const combinedCounts = new Map();
-      for (const id of combinedNominees) {
-        combinedCounts.set(id, (combinedCounts.get(id) || 0) + 1);
-      }
-      if (combinedCounts.size > 3) {
-        return res.status(409).json({ error: "You can vote for only three different nominees per award." });
-      }
-      if ([...combinedCounts.values()].some((count) => count > 2)) {
-        return res.status(409).json({ error: "You can give a nominee no more than two votes per award." });
-      }
-      return res.status(409).json({ error: "Your ballot changed. Please refresh and try again." });
-    }
+    await AwardVote.create({
+      award: award._id,
+      voter: voter._id,
+      nominee: nomineeIds,
+    });
+    return res.status(201).json({ message: "Your votes have been counted." });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "Your ballot was submitted at the same time elsewhere. Refresh to see its status." });
+    }
     return next(error);
   }
 });
