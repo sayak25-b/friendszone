@@ -81,11 +81,11 @@ export default function FriendsAwards() {
     ).sort();
     if (
       !voterId ||
-      nomineeIds.length !== 4 ||
+      nomineeIds.length < 3 ||
+      nomineeIds.length > 4 ||
       new Set(nomineeIds).size !== 3 ||
-      counts[0] !== 1 ||
-      counts[1] !== 1 ||
-      counts[2] !== 2
+      counts.some((count) => count !== 1 && count !== 2) ||
+      counts.filter((count) => count === 2).length > 1
     ) return;
     setSubmittingId(awardId);
     setError("");
@@ -154,7 +154,7 @@ export default function FriendsAwards() {
           <div>
             <h2 className="font-bold text-slate-900">Who’s voting?</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Select your member profile. In each category, vote for exactly three people: give two votes to one person and one vote to each of the other two. You can’t vote for yourself. This name selection is not a sign-in, so please vote honestly.
+              Select your member profile. In each category, vote for exactly three people. You may give one of them a second vote, but the fourth vote is optional. You can’t vote for yourself. This name selection is not a sign-in, so please vote honestly.
             </p>
           </div>
           <select
@@ -215,12 +215,12 @@ export default function FriendsAwards() {
               const votesUsed = selectedForAward.length;
               const hasDoubleVote = [...selectedCounts.values()].includes(2);
               const ballotCounts = [...selectedCounts.values()].sort();
-              const hasCompleteBallot =
-                selectedForAward.length === 4 &&
+              const isValidBallot =
+                selectedForAward.length >= 3 &&
+                selectedForAward.length <= 4 &&
                 selectedCounts.size === 3 &&
-                ballotCounts[0] === 1 &&
-                ballotCounts[1] === 1 &&
-                ballotCounts[2] === 2;
+                ballotCounts.every((count) => count === 1 || count === 2) &&
+                ballotCounts.filter((count) => count === 2).length <= 1;
               const resultByNominee = new Map(
                 (award.results || []).map((result) => [result.nomineeId, result.votes])
               );
@@ -268,12 +268,18 @@ export default function FriendsAwards() {
                       <p className="flex items-center gap-2">
                         <CheckCircle2 size={17} /> Your votes are recorded privately.
                       </p>
-                      <p>{votesUsed} of 4 votes cast · No votes remaining.</p>
+                      <p>
+                        {votesUsed} of 4 votes cast · {votesUsed === 4 ? "No votes remaining." : "Optional fourth vote not used."}
+                      </p>
                     </div>
                   ) : (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
                       <p className="text-sm font-semibold text-slate-500">
-                        {`${votesUsed} of 4 votes selected · ${4 - votesUsed} remaining`}
+                        {votesUsed < 3
+                          ? `${votesUsed} of 3 nominees selected`
+                          : votesUsed === 3
+                            ? "3 nominees selected · Optional fourth vote available"
+                            : "4 of 4 votes selected"}
                       </p>
                       {award.nominees.map((nominee) => {
                         const nomineeId = String(nominee._id);
@@ -334,7 +340,7 @@ export default function FriendsAwards() {
                       })}
                       <button
                         type="submit"
-                        disabled={!voterId || !hasCompleteBallot || submittingId === award._id}
+                        disabled={!voterId || !isValidBallot || submittingId === award._id}
                         className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Trophy size={17} />

@@ -348,11 +348,12 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     }
     if (
       !Array.isArray(nomineeIds) ||
-      nomineeIds.length !== 4 ||
+      nomineeIds.length < 3 ||
+      nomineeIds.length > 4 ||
       nomineeIds.some((id) => !mongoose.isValidObjectId(id))
     ) {
       return res.status(400).json({
-        error: "Cast four votes across exactly three nominees: two votes for one nominee and one vote for each of the other two.",
+        error: "Vote for exactly three nominees. A second vote is optional and can go to only one nominee.",
       });
     }
     const submittedCounts = new Map();
@@ -362,12 +363,11 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     const counts = [...submittedCounts.values()].sort();
     if (
       submittedCounts.size !== 3 ||
-      counts[0] !== 1 ||
-      counts[1] !== 1 ||
-      counts[2] !== 2
+      counts.some((count) => count !== 1 && count !== 2) ||
+      counts.filter((count) => count === 2).length > 1
     ) {
       return res.status(400).json({
-        error: "Cast four votes across exactly three nominees: two votes for one nominee and one vote for each of the other two.",
+        error: "Vote for exactly three nominees. A second vote is optional and can go to only one nominee.",
       });
     }
     nomineeIds = nomineeIds.map((id) => new mongoose.Types.ObjectId(id));
@@ -402,10 +402,8 @@ router.post("/awards/:id/votes", async (req, res, next) => {
       const savedCounts = [...currentCounts.values()].sort();
       const isCompleteBallot =
         currentCounts.size === 3 &&
-        savedCounts.length === 3 &&
-        savedCounts[0] === 1 &&
-        savedCounts[1] === 1 &&
-        savedCounts[2] === 2;
+        savedCounts.every((count) => count === 1 || count === 2) &&
+        savedCounts.filter((count) => count === 2).length <= 1;
       if (isCompleteBallot) {
         return res.status(409).json({ error: "Votes for this category have already been submitted." });
       }
