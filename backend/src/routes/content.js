@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import mongoose from "mongoose";
 import { GridFSBucket, ObjectId } from "mongodb";
 import multer from "multer";
@@ -93,6 +94,36 @@ function awardInput(body) {
 function ballotNomineeIds(ballot) {
   const nomineeIds = Array.isArray(ballot.nominee) ? ballot.nominee : [ballot.nominee];
   return nomineeIds.filter(Boolean).map(String);
+}
+
+function certificateSignature(awardId, nomineeId) {
+  return createHmac("sha256", process.env.JWT_SECRET)
+    .update(`friendszone-award-certificate:v1:${awardId}:${nomineeId}`)
+    .digest("hex");
+}
+
+function createCertificateId(awardId, nomineeId) {
+  return `FZ-${awardId}-${nomineeId}-${certificateSignature(awardId, nomineeId)}`;
+}
+
+async function findAwardWinner(awardId, nomineeId) {
+  const award = await Award.findById(awardId)
+    .populate({ path: "nominees", select: "name imageUrl" })
+    .lean();
+  if (!award || award.closesAt > new Date()) return null;
+
+  const nominee = award.nominees.find((entry) => String(entry._id) === String(nomineeId));
+  if (!nominee) return null;
+
+  const counts = await AwardVote.aggregate([
+    { $match: { award: award._id } },
+    { $unwind: "$nominee" },
+    { $group: { _id: "$nominee", votes: { $sum: 1 } } },
+  ]);
+  const winningScore = Math.max(0, ...counts.map((entry) => entry.votes));
+  const votes = counts.find((entry) => String(entry._id) === String(nomineeId))?.votes || 0;
+  if (winningScore === 0 || votes !== winningScore) return null;
+  return { award, nominee, votes };
 }
 
 async function uploadImageBuffer(buffer) {
@@ -330,6 +361,59 @@ router.get("/awards", async (req, res, next) => {
           : null,
       };
     }));
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/awards/:id/certificates/:nomineeId", async (req, res, next) => {
+  try {
+    const { id: awardId, nomineeId } = req.params;
+    if (!mongoose.isValidObjectId(awardId) || !mongoose.isValidObjectId(nomineeId)) {
+      return res.status(404).json({ error: "Certificate is not available for this nominee." });
+    }
+
+    const winner = await findAwardWinner(awardId, nomineeId);
+    if (!winner) {
+      return res.status(404).json({ error: "Certificate is not available for this nominee." });
+    }
+    const certificateId = createCertificateId(String(winner.award._id), String(winner.nominee._id));
+    return res.json({
+      certificateId,
+      awardTitle: winner.award.title,
+      winnerName: winner.nominee.name,
+      issuedAt: winner.award.closesAt,
+      verificationPath: `/certificates/${certificateId}`,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/certificates/:id", async (req, res, next) => {
+  try {
+    const match = /^FZ-([a-f\d]{24})-([a-f\d]{24})-([a-f\d]{64})$/i.exec(req.params.id);
+    if (!match) {
+      return res.status(404).json({ valid: false, error: "Certificate ID is invalid or does not match an award winner." });
+    }
+
+    const [, awardId, nomineeId, signature] = match;
+    const expectedSignature = certificateSignature(awardId.toLowerCase(), nomineeId.toLowerCase());
+    if (!timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expectedSignature, "hex"))) {
+      return res.status(404).json({ valid: false, error: "Certificate ID is invalid or does not match an award winner." });
+    }
+
+    const winner = await findAwardWinner(awardId, nomineeId);
+    if (!winner) {
+      return res.status(404).json({ valid: false, error: "Certificate ID is invalid or does not match an award winner." });
+    }
+    return res.json({
+      valid: true,
+      certificateId: createCertificateId(String(winner.award._id), String(winner.nominee._id)),
+      awardTitle: winner.award.title,
+      winnerName: winner.nominee.name,
+      issuedAt: winner.award.closesAt,
+    });
   } catch (error) {
     return next(error);
   }

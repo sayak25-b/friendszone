@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, CheckCircle2, LogOut, Medal, Minus, Plus, Sparkles, Trophy, X } from "lucide-react";
-import { apiAssetUrl, apiRequest } from "../lib/api";
+import { CalendarDays, CheckCircle2, Download, LogOut, Medal, Minus, Plus, Sparkles, Trophy, X } from "lucide-react";
+import { API_BASE_URL, apiAssetUrl, apiRequest } from "../lib/api";
 
 const VOTER_TOKEN_KEY = "friendszone-voter-token";
 
@@ -35,6 +35,7 @@ export default function FriendsAwards() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [submittingId, setSubmittingId] = useState("");
+  const [certificateDownloadId, setCertificateDownloadId] = useState("");
 
   useEffect(() => {
     if (!voterToken) return undefined;
@@ -180,6 +181,103 @@ export default function FriendsAwards() {
       setError(voteError.message);
     } finally {
       setSubmittingId("");
+    }
+  }
+
+  async function downloadCertificate(awardId, nomineeId, nomineeName) {
+    const downloadId = `${awardId}:${nomineeId}`;
+    setCertificateDownloadId(downloadId);
+    setError("");
+    try {
+      const certificate = await apiRequest(
+        `/awards/${awardId}/certificates/${nomineeId}`
+      );
+      const { jsPDF } = await import("jspdf");
+      const verificationUrl = `${API_BASE_URL}${certificate.verificationPath}`;
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const center = pageWidth / 2;
+
+      pdf.setProperties({
+        title: `${certificate.awardTitle} - ${certificate.winnerName}`,
+        subject: "FriendsZone Awards winner certificate",
+        author: "FriendsZone",
+      });
+      pdf.setFillColor(250, 248, 255);
+      pdf.rect(0, 0, pageWidth, pageHeight, "F");
+      pdf.setDrawColor(109, 40, 217);
+      pdf.setLineWidth(1.2);
+      pdf.roundedRect(9, 9, pageWidth - 18, pageHeight - 18, 3, 3, "S");
+      pdf.setDrawColor(217, 180, 90);
+      pdf.setLineWidth(0.45);
+      pdf.roundedRect(13, 13, pageWidth - 26, pageHeight - 26, 2, 2, "S");
+
+      pdf.setTextColor(109, 40, 217);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(15);
+      pdf.text("FRIENDSZONE AWARDS", center, 31, { align: "center" });
+      pdf.setTextColor(51, 41, 79);
+      pdf.setFontSize(27);
+      pdf.text("CERTIFICATE OF ACHIEVEMENT", center, 51, { align: "center" });
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(12);
+      pdf.setTextColor(100, 92, 115);
+      pdf.text("PRESENTED TO", center, 69, { align: "center" });
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(31);
+      pdf.setTextColor(124, 58, 237);
+      const winnerLines = pdf.splitTextToSize(certificate.winnerName, 225);
+      pdf.text(winnerLines, center, 85, { align: "center" });
+
+      const recognitionY = 85 + winnerLines.length * 12;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(12);
+      pdf.setTextColor(100, 92, 115);
+      pdf.text("For being named a winner in", center, recognitionY + 5, { align: "center" });
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(20);
+      pdf.setTextColor(51, 41, 79);
+      const awardLines = pdf.splitTextToSize(certificate.awardTitle, 235);
+      pdf.text(awardLines, center, recognitionY + 17, { align: "center" });
+
+      pdf.setDrawColor(217, 180, 90);
+      pdf.setLineWidth(0.6);
+      pdf.line(27, 159, pageWidth - 27, 159);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.setTextColor(71, 65, 82);
+      const awardedOn = new Date(certificate.issuedAt).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      pdf.text(`Awarded ${awardedOn}`, 34, 169);
+      pdf.text(`Certificate ID: ${certificate.certificateId}`, 34, 178);
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 92, 115);
+      pdf.text("Verify this certificate:", 34, 187);
+      const verificationLines = pdf.splitTextToSize(verificationUrl, 218);
+      pdf.text(verificationLines, 34, 192);
+      pdf.link(32, 183, 230, 15, { url: verificationUrl });
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.setTextColor(109, 40, 217);
+      pdf.text("FRIENDSZONE", pageWidth - 34, 169, { align: "right" });
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 92, 115);
+      pdf.text("Celebrating our community", pageWidth - 34, 175, { align: "right" });
+
+      const safeName = nomineeName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
+      pdf.save(`${safeName || "winner"}-friendszone-certificate.pdf`);
+    } catch (certificateError) {
+      setError(certificateError.message);
+    } finally {
+      setCertificateDownloadId("");
     }
   }
 
@@ -430,7 +528,20 @@ export default function FriendsAwards() {
                             <li key={nominee._id} className={`flex items-center gap-3 rounded-2xl p-3 ${winner ? "bg-amber-50 ring-1 ring-amber-200" : "bg-slate-50"}`}>
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-slate-500">{winner ? "🏆" : index + 1}</span>
                               {nominee.imageUrl && <img src={apiAssetUrl(nominee.imageUrl)} alt="" className="h-10 w-10 rounded-full object-cover" />}
-                              <span className="flex-1 font-bold text-slate-800">{nominee.name}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-slate-800">{nominee.name}</p>
+                                {winner && (
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadCertificate(award._id, String(nominee._id), nominee.name)}
+                                    disabled={certificateDownloadId === `${award._id}:${nominee._id}`}
+                                    className="mt-2 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60"
+                                  >
+                                    <Download size={14} />
+                                    {certificateDownloadId === `${award._id}:${nominee._id}` ? "Preparing certificate…" : "Download Certificate"}
+                                  </button>
+                                )}
+                              </div>
                               <span className="text-sm font-extrabold text-violet-700">{votes} {votes === 1 ? "vote" : "votes"}</span>
                             </li>
                           );
