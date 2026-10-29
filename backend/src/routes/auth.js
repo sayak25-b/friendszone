@@ -49,8 +49,8 @@ router.post("/voter/register", voterAuthLimiter, async (req, res, next) => {
     if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: "Enter a valid email address." });
     }
-    if (password.length < 8 || Buffer.byteLength(password, "utf8") > 72) {
-      return res.status(400).json({ error: "Your password must be at least 8 characters and no more than 72 UTF-8 bytes." });
+    if (!/^\d{4}$/.test(password)) {
+      return res.status(400).json({ error: "Your password must be exactly 4 digits." });
     }
 
     const member = await Member.findOne({ email, isActive: true }).select("_id name");

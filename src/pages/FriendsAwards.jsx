@@ -318,14 +318,16 @@ export default function FriendsAwards() {
                   <input
                     type="password"
                     autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                    inputMode={authMode === "register" ? "numeric" : undefined}
+                    pattern={authMode === "register" ? "[0-9]{4}" : undefined}
                     required
-                    minLength={authMode === "register" ? 8 : undefined}
-                    maxLength={72}
+                    minLength={authMode === "register" ? 4 : undefined}
+                    maxLength={authMode === "register" ? 4 : 72}
                     value={authPassword}
                     onChange={(event) => setAuthPassword(event.target.value)}
                     className="w-full rounded-xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
                   />
-                  {authMode === "register" && <span className="mt-2 block text-xs text-slate-500">Use at least 8 characters.</span>}
+                  {authMode === "register" && <span className="mt-2 block text-xs text-slate-500">Choose a 4-digit numeric password.</span>}
                 </label>
                 {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
                 <button
