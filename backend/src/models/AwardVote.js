@@ -9,7 +9,7 @@ const awardVoteSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator: (nominees) => {
-          if (!Array.isArray(nominees) || nominees.length < 3 || nominees.length > 4) {
+          if (!Array.isArray(nominees) || nominees.length !== 4) {
             return false;
           }
           const voteCounts = new Map();
@@ -18,11 +18,11 @@ const awardVoteSchema = new mongoose.Schema(
             voteCounts.set(nomineeId, (voteCounts.get(nomineeId) || 0) + 1);
           }
           const counts = [...voteCounts.values()].sort();
-          return voteCounts.size === 3 &&
-            counts.every((count) => count === 1 || count === 2) &&
-            counts.filter((count) => count === 2).length <= 1;
+          return voteCounts.size >= 2 &&
+            voteCounts.size <= 3 &&
+            counts.every((count) => count === 1 || count === 2);
         },
-        message: "A ballot must include three nominees, with at most one nominee receiving a second vote.",
+        message: "A ballot must use four votes across two or three nominees, with no nominee receiving more than two votes.",
       },
     },
   },

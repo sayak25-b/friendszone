@@ -7,7 +7,7 @@ import Award from "../models/Award.js";
 import AwardVote from "../models/AwardVote.js";
 import Memory from "../models/Memory.js";
 import Member from "../models/Member.js";
-import { requireAdmin } from "../middleware/auth.js";
+import { requireAdmin, requireVoter } from "../middleware/auth.js";
 
 const router = Router();
 const memoryFields = [
@@ -335,24 +335,21 @@ router.get("/awards", async (req, res, next) => {
   }
 });
 
-router.get("/awards/vote-status", async (req, res, next) => {
+router.get("/awards/vote-status", requireVoter, async (req, res, next) => {
   try {
-    const { memberId } = req.query;
-    if (!mongoose.isValidObjectId(memberId)) {
-      return res.status(400).json({ error: "Member selection is invalid." });
-    }
-    const member = await Member.exists({ _id: memberId, isActive: true });
-    if (!member) return res.status(404).json({ error: "Member not found." });
-
-    const ballots = await AwardVote.find({ voter: memberId })
+    const ballots = await AwardVote.find({ voter: req.voterId })
       .select("award nominee")
       .lean();
     const votesByAward = {};
     for (const ballot of ballots) {
-      const votesUsed = ballotNomineeIds(ballot).length;
+      const nomineeIds = ballotNomineeIds(ballot);
+      const votesUsed = nomineeIds.length;
+      const distinctNomineeCount = new Set(nomineeIds).size;
       votesByAward[String(ballot.award)] = {
         votesUsed,
         votesRemaining: Math.max(0, 4 - votesUsed),
+        nomineeIds,
+        submitted: votesUsed === 4 && distinctNomineeCount >= 2 && distinctNomineeCount <= 3,
       };
     }
     return res.json({ votesByAward });
@@ -361,25 +358,20 @@ router.get("/awards/vote-status", async (req, res, next) => {
   }
 });
 
-router.post("/awards/:id/votes", async (req, res, next) => {
+router.post("/awards/:id/votes", requireVoter, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(404).json({ error: "Award not found." });
     }
-    const { voterId } = req.body || {};
     let nomineeIds = req.body?.nomineeIds ||
       (req.body?.nomineeId ? [req.body.nomineeId] : []);
-    if (!mongoose.isValidObjectId(voterId)) {
-      return res.status(400).json({ error: "Choose your member profile and a nominee." });
-    }
     if (
       !Array.isArray(nomineeIds) ||
-      nomineeIds.length < 3 ||
-      nomineeIds.length > 4 ||
+      nomineeIds.length !== 4 ||
       nomineeIds.some((id) => !mongoose.isValidObjectId(id))
     ) {
       return res.status(400).json({
-        error: "Vote for exactly three nominees. A second vote is optional and can go to only one nominee.",
+        error: "Cast exactly four votes across two or three nominees, with no nominee receiving more than two votes.",
       });
     }
     const submittedCounts = new Map();
@@ -388,18 +380,18 @@ router.post("/awards/:id/votes", async (req, res, next) => {
     }
     const counts = [...submittedCounts.values()].sort();
     if (
-      submittedCounts.size !== 3 ||
-      counts.some((count) => count !== 1 && count !== 2) ||
-      counts.filter((count) => count === 2).length > 1
+      submittedCounts.size < 2 ||
+      submittedCounts.size > 3 ||
+      counts.some((count) => count !== 1 && count !== 2)
     ) {
       return res.status(400).json({
-        error: "Vote for exactly three nominees. A second vote is optional and can go to only one nominee.",
+        error: "Cast exactly four votes across two or three nominees, with no nominee receiving more than two votes.",
       });
     }
     nomineeIds = nomineeIds.map((id) => new mongoose.Types.ObjectId(id));
     const [award, voter] = await Promise.all([
       Award.findById(req.params.id),
-      Member.findOne({ _id: voterId, isActive: true }).select("_id"),
+      Member.findOne({ _id: req.voterId, isActive: true }).select("_id"),
     ]);
     if (!award) return res.status(404).json({ error: "Award not found." });
     if (!voter) return res.status(404).json({ error: "Member not found." });
@@ -427,9 +419,10 @@ router.post("/awards/:id/votes", async (req, res, next) => {
       }
       const savedCounts = [...currentCounts.values()].sort();
       const isCompleteBallot =
-        currentCounts.size === 3 &&
-        savedCounts.every((count) => count === 1 || count === 2) &&
-        savedCounts.filter((count) => count === 2).length <= 1;
+        currentNominees.length === 4 &&
+        currentCounts.size >= 2 &&
+        currentCounts.size <= 3 &&
+        savedCounts.every((count) => count === 1 || count === 2);
       if (isCompleteBallot) {
         return res.status(409).json({ error: "Votes for this category have already been submitted." });
       }

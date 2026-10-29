@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, CheckCircle2, Medal, Minus, Plus, Sparkles, Trophy } from "lucide-react";
+import { CalendarDays, CheckCircle2, LogOut, Medal, Minus, Plus, Sparkles, Trophy, X } from "lucide-react";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 
-const VOTER_KEY = "friendszone-awards-voter";
+const VOTER_TOKEN_KEY = "friendszone-voter-token";
 
 function formatDate(value) {
   return new Date(value).toLocaleString("en-IN", {
@@ -16,41 +16,47 @@ function formatDate(value) {
 }
 
 export default function FriendsAwards() {
-  const [members, setMembers] = useState([]);
-  const [voterId, setVoterId] = useState(() => localStorage.getItem(VOTER_KEY) || "");
+  const [voter, setVoter] = useState(null);
+  const [voterToken, setVoterToken] = useState(() => localStorage.getItem(VOTER_TOKEN_KEY) || "");
+  const [authLoading, setAuthLoading] = useState(() => Boolean(localStorage.getItem(VOTER_TOKEN_KEY)));
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [activeAwardId, setActiveAwardId] = useState("");
   const [awards, setAwards] = useState([]);
   const [selectedNominees, setSelectedNominees] = useState({});
   const [voteStatus, setVoteStatus] = useState({});
   const [voteStatusLoading, setVoteStatusLoading] = useState(() =>
-    Boolean(localStorage.getItem(VOTER_KEY))
+    Boolean(localStorage.getItem(VOTER_TOKEN_KEY))
   );
   const [loading, setLoading] = useState(true);
-  const [membersLoading, setMembersLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [submittingId, setSubmittingId] = useState("");
 
   useEffect(() => {
+    if (!voterToken) return undefined;
+
     const controller = new AbortController();
-    apiRequest("/members", { signal: controller.signal })
-      .then((result) => {
-        setMembers(result);
-        const savedVoterId = localStorage.getItem(VOTER_KEY);
-        if (savedVoterId && result.some((member) => member._id === savedVoterId)) {
-          setVoterId(savedVoterId);
-        } else {
-          localStorage.removeItem(VOTER_KEY);
-          setVoterId("");
-        }
-      })
+    apiRequest("/auth/voter/me", { token: voterToken, signal: controller.signal })
+      .then(setVoter)
       .catch((loadError) => {
-        if (!controller.signal.aborted) setError(loadError.message);
+        if (controller.signal.aborted) return;
+        localStorage.removeItem(VOTER_TOKEN_KEY);
+        setVoterToken("");
+        setVoter(null);
+        setVoteStatus({});
+        setSelectedNominees({});
+        setVoteStatusLoading(false);
+        setError(loadError.message);
       })
       .finally(() => {
-        if (!controller.signal.aborted) setMembersLoading(false);
+        if (!controller.signal.aborted) setAuthLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [voterToken]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,13 +72,22 @@ export default function FriendsAwards() {
   }, []);
 
   useEffect(() => {
-    if (!voterId) return undefined;
+    if (!voter || !voterToken) return undefined;
 
     const controller = new AbortController();
-    apiRequest(`/awards/vote-status?memberId=${encodeURIComponent(voterId)}`, {
+    apiRequest("/awards/vote-status", {
+      token: voterToken,
       signal: controller.signal,
     })
-      .then((result) => setVoteStatus(result.votesByAward || {}))
+      .then((result) => {
+        const votesByAward = result.votesByAward || {};
+        setVoteStatus(votesByAward);
+        setSelectedNominees(Object.fromEntries(
+          Object.entries(votesByAward)
+            .filter(([, status]) => !status.submitted && status.nomineeIds?.length)
+            .map(([awardId, status]) => [awardId, status.nomineeIds])
+        ));
+      })
       .catch((loadError) => {
         if (!controller.signal.aborted) setError(loadError.message);
       })
@@ -80,18 +95,51 @@ export default function FriendsAwards() {
         if (!controller.signal.aborted) setVoteStatusLoading(false);
       });
     return () => controller.abort();
-  }, [voterId]);
+  }, [voter, voterToken]);
 
-  function changeVoter(event) {
-    const nextVoterId = event.target.value;
-    setVoterId(nextVoterId);
-    setSelectedNominees({});
-    setVoteStatus({});
-    setVoteStatusLoading(Boolean(nextVoterId));
+  async function submitAuth(event) {
+    event.preventDefault();
+    setAuthSubmitting(true);
+    setVoteStatusLoading(true);
     setError("");
     setNotice("");
-    if (nextVoterId) localStorage.setItem(VOTER_KEY, nextVoterId);
-    else localStorage.removeItem(VOTER_KEY);
+    try {
+      const result = await apiRequest(`/auth/voter/${authMode}`, {
+        method: "POST",
+        body: { email: authEmail, password: authPassword },
+      });
+      localStorage.setItem(VOTER_TOKEN_KEY, result.token);
+      setVoterToken(result.token);
+      setVoter(result.voter);
+      setAuthPassword("");
+      setAuthDialogOpen(false);
+      setNotice(`Welcome, ${result.voter.name}. You’re ready to vote.`);
+    } catch (authError) {
+      setVoteStatusLoading(false);
+      setError(authError.message);
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  function signOut() {
+    localStorage.removeItem(VOTER_TOKEN_KEY);
+    setVoterToken("");
+    setVoter(null);
+    setActiveAwardId("");
+    setVoteStatusLoading(false);
+    setSelectedNominees({});
+    setVoteStatus({});
+    setNotice("");
+  }
+
+  function beginVoting(awardId) {
+    setActiveAwardId(awardId);
+    setError("");
+    if (!voter) {
+      setAuthMode("login");
+      setAuthDialogOpen(true);
+    }
   }
 
   async function castVote(event, awardId) {
@@ -101,12 +149,12 @@ export default function FriendsAwards() {
       (nomineeId) => nomineeIds.filter((id) => id === nomineeId).length
     ).sort();
     if (
-      !voterId ||
-      nomineeIds.length < 3 ||
-      nomineeIds.length > 4 ||
-      new Set(nomineeIds).size !== 3 ||
+      !voter ||
+      nomineeIds.length !== 4 ||
+      new Set(nomineeIds).size < 2 ||
+      new Set(nomineeIds).size > 3 ||
       counts.some((count) => count !== 1 && count !== 2) ||
-      counts.filter((count) => count === 2).length > 1
+      counts.reduce((total, count) => total + count, 0) !== 4
     ) return;
     setSubmittingId(awardId);
     setError("");
@@ -114,16 +162,20 @@ export default function FriendsAwards() {
     try {
       await apiRequest(`/awards/${awardId}/votes`, {
         method: "POST",
-        body: { voterId, nomineeIds },
+        token: voterToken,
+        body: { nomineeIds },
       });
       setNotice("Your votes are in! Thanks for celebrating your friends.");
       setVoteStatus((current) => ({
         ...current,
         [awardId]: {
           votesUsed: nomineeIds.length,
-          votesRemaining: 4 - nomineeIds.length,
+          votesRemaining: 0,
+          nomineeIds,
+          submitted: true,
         },
       }));
+      setActiveAwardId("");
     } catch (voteError) {
       setError(voteError.message);
     } finally {
@@ -157,7 +209,7 @@ export default function FriendsAwards() {
       second.awards.length - first.awards.length ||
       first.member.name.localeCompare(second.member.name)
   );
-  const isVoteStatusLoading = Boolean(voterId) && voteStatusLoading;
+  const isVoteStatusLoading = Boolean(voter) && voteStatusLoading;
 
   return (
     <main className="min-h-screen bg-[#faf8ff]">
@@ -182,25 +234,116 @@ export default function FriendsAwards() {
           <div>
             <h2 className="font-bold text-slate-900">Who’s voting?</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Select your member profile. In each category, vote for exactly three people. You may give one of them a second vote, but the fourth vote is optional. You can’t vote for yourself. This name selection is not a sign-in, so please vote honestly.
+              Browse categories and nominees without signing in. When you’re ready, sign in with the email linked to your member profile. Cast four votes per category across up to three nominees, with no more than two votes for anyone. You can’t vote for yourself.
             </p>
           </div>
-          <select
-            value={voterId}
-            onChange={changeVoter}
-            disabled={membersLoading}
-            aria-label="Choose your member profile"
-            className="w-full rounded-xl border border-violet-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100 sm:max-w-xs"
-          >
-            <option value="">Choose your name…</option>
-            {members.map((member) => (
-              <option key={member._id} value={member._id}>{member.name}</option>
-            ))}
-          </select>
+          {voter ? (
+            <div className="flex items-center justify-between gap-4 sm:justify-end">
+              <span className="text-sm font-bold text-slate-700">Signed in as {voter.name}</span>
+              <button
+                type="button"
+                onClick={signOut}
+                className="inline-flex items-center gap-2 rounded-xl border border-violet-100 px-4 py-3 text-sm font-bold text-violet-700 hover:bg-violet-50"
+              >
+                <LogOut size={16} /> Sign out
+              </button>
+            </div>
+          ) : (
+            <p className="shrink-0 text-sm font-bold text-violet-700">No sign-in needed to browse</p>
+          )}
         </div>
 
-        {error && <p role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+        {error && !authDialogOpen && <p role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
         {notice && <p role="status" className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{notice}</p>}
+
+        {authDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="presentation">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="voter-auth-heading"
+              className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8"
+            >
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="voter-auth-heading" className="text-2xl font-black text-slate-900">
+                    {authMode === "login" ? "Sign in to vote" : "Create your voter account"}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Use the email address linked to your FriendsZone member profile.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close sign-in dialog"
+                  onClick={() => {
+                    setAuthDialogOpen(false);
+                    setError("");
+                  }}
+                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="mb-5 flex rounded-xl bg-violet-50 p-1">
+                {["login", "register"].map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setAuthMode(mode);
+                      setError("");
+                    }}
+                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold ${authMode === mode ? "bg-white text-violet-700 shadow-sm" : "text-slate-500"}`}
+                  >
+                    {mode === "login" ? "Sign in" : "Sign up"}
+                  </button>
+                ))}
+              </div>
+              <form onSubmit={submitAuth} className="space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">Email</span>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    required
+                    maxLength={254}
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    className="w-full rounded-xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">Password</span>
+                  <input
+                    type="password"
+                    autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                    required
+                    minLength={authMode === "register" ? 8 : undefined}
+                    maxLength={72}
+                    value={authPassword}
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    className="w-full rounded-xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                  />
+                  {authMode === "register" && <span className="mt-2 block text-xs text-slate-500">Use at least 8 characters.</span>}
+                </label>
+                {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={authSubmitting}
+                  className="w-full rounded-xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {authSubmitting ? "Please wait…" : authMode === "login" ? "Sign in and continue" : "Create account and continue"}
+                </button>
+                {authMode === "register" && (
+                  <p className="text-xs leading-5 text-slate-500">
+                    Your account is linked to the active member profile that already uses this email.
+                  </p>
+                )}
+              </form>
+            </section>
+          </div>
+        )}
 
         {loading ? (
           <p className="rounded-3xl border border-violet-100 bg-white p-10 text-center text-slate-500">Loading awards…</p>
@@ -242,17 +385,13 @@ export default function FriendsAwards() {
               }
               const votesUsed = selectedForAward.length;
               const status = voteStatus[award._id];
-              const displayedVotesUsed = status?.votesUsed ?? votesUsed;
-              const votesRemaining = status?.votesRemaining ?? 4 - votesUsed;
-              const hasSubmittedBallot = status?.votesUsed > 0;
-              const hasDoubleVote = [...selectedCounts.values()].includes(2);
+              const hasSubmittedBallot = status?.submitted === true;
               const ballotCounts = [...selectedCounts.values()].sort();
               const isValidBallot =
-                selectedForAward.length >= 3 &&
-                selectedForAward.length <= 4 &&
-                selectedCounts.size === 3 &&
-                ballotCounts.every((count) => count === 1 || count === 2) &&
-                ballotCounts.filter((count) => count === 2).length <= 1;
+                selectedForAward.length === 4 &&
+                selectedCounts.size >= 2 &&
+                selectedCounts.size <= 3 &&
+                ballotCounts.every((count) => count === 1 || count === 2);
               const resultByNominee = new Map(
                 (award.results || []).map((result) => [result.nomineeId, result.votes])
               );
@@ -301,28 +440,26 @@ export default function FriendsAwards() {
                         <CheckCircle2 size={17} /> Your votes are recorded privately.
                       </p>
                       <p>
-                        {displayedVotesUsed} votes used · {votesRemaining} remaining
+                        4 votes used · 0 remaining
                       </p>
                     </div>
-                  ) : (
+                  ) : voter && activeAwardId === award._id ? (
                     <form onSubmit={(event) => castVote(event, award._id)} className="space-y-3 p-5 sm:p-6">
                       <div className="text-sm font-semibold text-slate-500">
                         {isVoteStatusLoading
                           ? "Loading your vote status…"
-                          : `${votesUsed} votes used · ${4 - votesUsed} remaining`}
+                          : `${votesUsed} of 4 votes selected`}
                       </div>
                       {award.nominees.map((nominee) => {
                         const nomineeId = String(nominee._id);
                         const nomineeVoteCount = selectedCounts.get(nomineeId) || 0;
-                        const selectedCount = nomineeVoteCount;
                         const selectedNomineeCount = selectedCounts.size;
-                        const isSelf = String(voterId) === nomineeId;
+                        const isSelf = String(voter.memberId) === nomineeId;
                         const canAddVote =
-                          Boolean(voterId) &&
+                          Boolean(voter) &&
                           !isSelf &&
                           selectedForAward.length < 4 &&
                           nomineeVoteCount < 2 &&
-                          (!hasDoubleVote || nomineeVoteCount === 0) &&
                           (nomineeVoteCount > 0 || selectedNomineeCount < 3);
                         return (
                           <div key={nominee._id} className={`flex items-center gap-3 rounded-2xl border p-3 transition ${isSelf ? "border-slate-100 bg-slate-50 opacity-60" : nomineeVoteCount ? "border-violet-400 bg-violet-50" : "border-slate-100"}`}>
@@ -342,7 +479,7 @@ export default function FriendsAwards() {
                                       [award._id]: selected.filter((_, index) => index !== selectedIndex),
                                     };
                                   })}
-                                  disabled={!selectedCount}
+                                  disabled={!nomineeVoteCount}
                                   className="rounded-lg border border-violet-200 p-2 text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   <Minus size={16} />
@@ -370,13 +507,30 @@ export default function FriendsAwards() {
                       })}
                       <button
                         type="submit"
-                        disabled={!voterId || !isValidBallot || submittingId === award._id || isVoteStatusLoading}
+                        disabled={!voter || !isValidBallot || submittingId === award._id || isVoteStatusLoading}
                         className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Trophy size={17} />
                         {submittingId === award._id ? "Submitting…" : "Cast my vote"}
                       </button>
                     </form>
+                  ) : (
+                    <div className="space-y-3 p-5 sm:p-6">
+                      <p className="text-sm leading-6 text-slate-500">
+                        {status?.votesUsed
+                          ? `${status.votesUsed} of 4 votes already selected. Continue your ballot to submit all four.`
+                          : "Choose four votes across up to three nominees. You may give each nominee up to two votes."}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={authLoading || award.closed}
+                        onClick={() => beginVoting(award._id)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-wait disabled:opacity-50"
+                      >
+                        <Trophy size={17} />
+                        {authLoading ? "Checking sign-in…" : "Vote Now"}
+                      </button>
+                    </div>
                   )}
                 </article>
               );
