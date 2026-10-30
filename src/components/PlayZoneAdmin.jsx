@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, Check, Clock3, Eye, EyeOff, Plus, Shield, Trash2 } from "lucide-react";
+import { CalendarDays, Check, Clock3, Eye, EyeOff, Pencil, Plus, Shield, Trash2, X } from "lucide-react";
 import { apiRequest } from "../lib/api";
 
 function localDateString(date = new Date()) {
@@ -31,6 +31,7 @@ export default function PlayZoneAdmin({ token }) {
   const [date, setDate] = useState(tomorrowString);
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctIndex, setCorrectIndex] = useState(0);
+  const [editingTriviaId, setEditingTriviaId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -84,22 +85,49 @@ export default function PlayZoneAdmin({ token }) {
     setError("");
     setNotice("");
     try {
-      await apiRequest("/play-zone/admin/trivia", {
-        method: "POST",
+      await apiRequest(
+        editingTriviaId
+          ? `/play-zone/admin/trivia/${editingTriviaId}`
+          : "/play-zone/admin/trivia",
+        {
+        method: editingTriviaId ? "PUT" : "POST",
         token,
         body: { date, question, options, correctIndex },
-      });
+        }
+      );
+      const wasEditing = Boolean(editingTriviaId);
+      setEditingTriviaId("");
       setQuestion("");
       setOptions(["", "", "", ""]);
       setDate(tomorrowString());
       setCorrectIndex(0);
-      setNotice("Trivia question scheduled.");
+      setNotice(wasEditing ? "Trivia question updated." : "Trivia question scheduled.");
       await refresh();
     } catch (saveError) {
       setError(saveError.message);
     } finally {
       setSaving(false);
     }
+  }
+
+  function editTrivia(item) {
+    setEditingTriviaId(item._id);
+    setDate(item.date);
+    setQuestion(item.question);
+    setOptions([...item.options]);
+    setCorrectIndex(item.correctIndex);
+    setError("");
+    setNotice("");
+  }
+
+  function cancelTriviaEdit() {
+    setEditingTriviaId("");
+    setDate(tomorrowString());
+    setQuestion("");
+    setOptions(["", "", "", ""]);
+    setCorrectIndex(0);
+    setError("");
+    setNotice("");
   }
 
   async function performAction(path, method, body, successMessage) {
@@ -175,8 +203,12 @@ export default function PlayZoneAdmin({ token }) {
         </section>
 
         <section className={sectionClass}>
-          <h3 className="text-lg font-black text-slate-900">Schedule daily trivia</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-500">A scheduled question goes live on its selected date.</p>
+          <h3 className="text-lg font-black text-slate-900">{editingTriviaId ? "Edit scheduled trivia" : "Schedule daily trivia"}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-500">
+            {editingTriviaId
+              ? "Correct the question, options, answer, or go-live date."
+              : "A scheduled question goes live on its selected date."}
+          </p>
           <form onSubmit={scheduleTrivia} className="mt-5 space-y-4">
             <label className="block">
               <span className="mb-2 block text-sm font-bold text-slate-700">Go-live date</span>
@@ -198,9 +230,17 @@ export default function PlayZoneAdmin({ token }) {
                 </div>
               ))}
             </div>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-5 py-3 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-60">
-              <CalendarDays size={16} /> Schedule question
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-5 py-3 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-60">
+                {editingTriviaId ? <Check size={16} /> : <CalendarDays size={16} />}
+                {editingTriviaId ? "Save changes" : "Schedule question"}
+              </button>
+              {editingTriviaId && (
+                <button type="button" onClick={cancelTriviaEdit} disabled={saving} className="inline-flex items-center gap-2 rounded-full border border-violet-200 px-5 py-3 text-sm font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-60">
+                  <X size={16} /> Cancel
+                </button>
+              )}
+            </div>
           </form>
         </section>
       </div>
@@ -254,6 +294,11 @@ export default function PlayZoneAdmin({ token }) {
                       <p className="mt-1 text-xs text-slate-500">{item.author?.name || "Scheduled by admin"}{item.isClosed ? " · closed" : ""}{item.isModerated ? " · hidden" : ""}</p>
                     </div>
                     <div className="flex shrink-0 gap-2">
+                      {!item.isClosed && item.answers.length === 0 && item.date >= localDateString() && (
+                        <button type="button" onClick={() => editTrivia(item)} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800">
+                          <Pencil size={14} /> Edit
+                        </button>
+                      )}
                       {!item.isClosed && item.date <= localDateString() && !item.isModerated && (
                         <button type="button" onClick={() => performAction(`/play-zone/admin/trivia/${item._id}/close`, "PATCH", {}, "Trivia poll closed.")} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
                           <Check size={14} /> Close

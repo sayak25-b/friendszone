@@ -23,6 +23,40 @@ function badRequest(message) {
   return error;
 }
 
+function triviaInput(body) {
+  const { date, question, options, correctIndex } = body || {};
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw badRequest("Choose a valid date for the question.");
+  }
+  const parsedDate = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || date < todayKey()) {
+    throw badRequest("Questions can only be scheduled for today or a future date.");
+  }
+  if (typeof question !== "string" || !question.trim() || question.trim().length > 240) {
+    throw badRequest("Enter a question no longer than 240 characters.");
+  }
+  if (
+    !Array.isArray(options) ||
+    options.length !== 4 ||
+    options.some((option) => typeof option !== "string" || !option.trim() || option.trim().length > 160)
+  ) {
+    throw badRequest("Enter four answer options, each no longer than 160 characters.");
+  }
+  if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
+    throw badRequest("Choose the correct answer.");
+  }
+  const normalizedOptions = options.map((option) => option.trim());
+  if (new Set(normalizedOptions.map((option) => option.toLocaleLowerCase())).size !== 4) {
+    throw badRequest("Each answer option must be different.");
+  }
+  return {
+    date,
+    question: question.trim(),
+    options: normalizedOptions,
+    correctIndex,
+  };
+}
+
 async function findActiveMember(memberId) {
   if (!mongoose.isValidObjectId(memberId)) {
     throw badRequest("Choose a valid member profile.");
@@ -103,38 +137,44 @@ router.delete("/admin/prompts/:id", async (req, res, next) => {
 
 router.post("/admin/trivia", async (req, res, next) => {
   try {
-    const { date, question, options, correctIndex } = req.body || {};
-    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      throw badRequest("Choose a valid date for the question.");
-    }
-    const parsedDate = new Date(`${date}T00:00:00Z`);
-    if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || date < todayKey()) {
-      throw badRequest("Questions can only be scheduled for today or a future date.");
-    }
-    if (typeof question !== "string" || !question.trim() || question.trim().length > 240) {
-      throw badRequest("Enter a question no longer than 240 characters.");
-    }
-    if (
-      !Array.isArray(options) ||
-      options.length !== 4 ||
-      options.some((option) => typeof option !== "string" || !option.trim() || option.trim().length > 160)
-    ) {
-      throw badRequest("Enter four answer options, each no longer than 160 characters.");
-    }
-    if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
-      throw badRequest("Choose the correct answer.");
-    }
-    if (new Set(options.map((option) => option.trim().toLocaleLowerCase())).size !== 4) {
-      throw badRequest("Each answer option must be different.");
-    }
     const scheduled = await DailyTrivia.create({
-      date,
-      question: question.trim(),
-      options: options.map((option) => option.trim()),
-      correctIndex,
+      ...triviaInput(req.body),
       isClosed: false,
     });
     return res.status(201).json(scheduled);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "A question is already scheduled for that date." });
+    }
+    return next(error);
+  }
+});
+
+router.put("/admin/trivia/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Trivia question not found." });
+    }
+    const input = triviaInput(req.body);
+    const trivia = await DailyTrivia.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        isClosed: { $ne: true },
+        answers: { $size: 0 },
+      },
+      { $set: input },
+      { new: true, runValidators: true }
+    );
+    if (!trivia) {
+      const existing = await DailyTrivia.findById(req.params.id).select("isClosed answers");
+      if (!existing) return res.status(404).json({ error: "Trivia question not found." });
+      return res.status(409).json({
+        error: existing.isClosed
+          ? "Closed trivia cannot be edited."
+          : "Trivia cannot be edited after members have answered.",
+      });
+    }
+    return res.json(trivia);
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ error: "A question is already scheduled for that date." });
