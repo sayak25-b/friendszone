@@ -72,17 +72,14 @@ function safeRound(round, memberId) {
   const viewerGuess = round.guesses.find(
     (guess) => String(guess.member) === String(memberId)
   );
-  const ownRound = String(round.author._id) === String(memberId);
   return {
     _id: round._id,
     author: round.author,
     statements: round.statements,
     guessesCount: round.guesses.length,
     hasGuessed: Boolean(viewerGuess),
-    guessedCorrectly: viewerGuess?.isCorrect ?? null,
     isClosed: round.isClosed,
     isModerated: round.isModerated,
-    lieIndex: ownRound || viewerGuess || round.isClosed ? round.lieIndex : null,
   };
 }
 
@@ -333,9 +330,6 @@ router.get("/", async (req, res, next) => {
             isModerated: trivia.isModerated,
             answersCount: trivia.answers.length,
             hasAnswered: Boolean(triviaAnswer),
-            answerIsCorrect: triviaAnswer?.isCorrect ?? null,
-            answerIndex: triviaAnswer?.optionIndex ?? null,
-            correctIndex: triviaAnswer || triviaAuthor || trivia.isClosed ? trivia.correctIndex : null,
           }
         : null,
       triviaParticipants: trivia?.answers.length || 0,
@@ -424,11 +418,8 @@ router.post("/truths/:id/guess", async (req, res, next) => {
       return res.status(409).json({ error: "You have already guessed this round." });
     }
 
-    const isCorrect = statementIndex === existingRound.lieIndex;
     return res.json({
-      isCorrect,
-      lieIndex: existingRound.lieIndex,
-      message: isCorrect ? "You spotted the lie! +1 point." : "Not quite — the lie is revealed.",
+      message: "Your guess has been recorded.",
     });
   } catch (error) {
     return next(error);
@@ -514,11 +505,8 @@ router.post("/trivia/answer", async (req, res, next) => {
       return res.status(409).json({ error: "You have already answered today's trivia." });
     }
 
-    const isCorrect = optionIndex === existingTrivia.correctIndex;
     return res.json({
-      isCorrect,
-      correctIndex: existingTrivia.correctIndex,
-      message: isCorrect ? "Correct! +1 point." : "Not quite — answer revealed.",
+      message: "Your answer has been recorded.",
     });
   } catch (error) {
     return next(error);
