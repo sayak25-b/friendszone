@@ -1,7 +1,8 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import Member from "../models/Member.js";
-import { DailyTrivia, TruthRound } from "../models/PlayZone.js";
+import { requireAdmin } from "../middleware/auth.js";
+import { DailyTrivia, GamePrompt, TruthRound } from "../models/PlayZone.js";
 
 const router = Router();
 
@@ -45,29 +46,201 @@ function safeRound(round, memberId) {
     guessesCount: round.guesses.length,
     hasGuessed: Boolean(viewerGuess),
     guessedCorrectly: viewerGuess?.isCorrect ?? null,
-    lieIndex: ownRound || viewerGuess ? round.lieIndex : null,
+    isClosed: round.isClosed,
+    isModerated: round.isModerated,
+    lieIndex: ownRound || viewerGuess || round.isClosed ? round.lieIndex : null,
   };
 }
+
+router.use("/admin", requireAdmin);
+
+router.get("/admin", async (req, res, next) => {
+  try {
+    const [prompts, truths, trivia] = await Promise.all([
+      GamePrompt.find().sort({ game: 1, createdAt: -1 }).lean(),
+      TruthRound.find().populate({ path: "author", select: "name" })
+        .sort({ date: -1, createdAt: -1 }).limit(100).lean(),
+      DailyTrivia.find().populate({ path: "author", select: "name" })
+        .sort({ date: -1 }).limit(100).lean(),
+    ]);
+    return res.json({ prompts, truths, trivia });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/admin/prompts", async (req, res, next) => {
+  try {
+    const { game, text } = req.body || {};
+    if (!["truths", "trivia"].includes(game)) {
+      throw badRequest("Choose a game for this prompt.");
+    }
+    if (typeof text !== "string" || !text.trim() || text.trim().length > 240) {
+      throw badRequest("Enter a prompt no longer than 240 characters.");
+    }
+    const prompt = await GamePrompt.create({ game, text: text.trim() });
+    return res.status(201).json(prompt);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "That prompt already exists for this game." });
+    }
+    return next(error);
+  }
+});
+
+router.delete("/admin/prompts/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Prompt not found." });
+    }
+    const prompt = await GamePrompt.findByIdAndDelete(req.params.id);
+    if (!prompt) return res.status(404).json({ error: "Prompt not found." });
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/admin/trivia", async (req, res, next) => {
+  try {
+    const { date, question, options, correctIndex } = req.body || {};
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw badRequest("Choose a valid date for the question.");
+    }
+    const parsedDate = new Date(`${date}T00:00:00Z`);
+    if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || date < todayKey()) {
+      throw badRequest("Questions can only be scheduled for today or a future date.");
+    }
+    if (typeof question !== "string" || !question.trim() || question.trim().length > 240) {
+      throw badRequest("Enter a question no longer than 240 characters.");
+    }
+    if (
+      !Array.isArray(options) ||
+      options.length !== 4 ||
+      options.some((option) => typeof option !== "string" || !option.trim() || option.trim().length > 160)
+    ) {
+      throw badRequest("Enter four answer options, each no longer than 160 characters.");
+    }
+    if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
+      throw badRequest("Choose the correct answer.");
+    }
+    if (new Set(options.map((option) => option.trim().toLocaleLowerCase())).size !== 4) {
+      throw badRequest("Each answer option must be different.");
+    }
+    const scheduled = await DailyTrivia.create({
+      date,
+      question: question.trim(),
+      options: options.map((option) => option.trim()),
+      correctIndex,
+      isClosed: false,
+    });
+    return res.status(201).json(scheduled);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "A question is already scheduled for that date." });
+    }
+    return next(error);
+  }
+});
+
+router.patch("/admin/truths/:id/moderation", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id) || typeof req.body?.isModerated !== "boolean") {
+      throw badRequest("Choose whether to hide or restore this round.");
+    }
+    const round = await TruthRound.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isModerated: req.body.isModerated } },
+      { new: true }
+    );
+    if (!round) return res.status(404).json({ error: "Round not found." });
+    return res.json({ id: String(round._id), isModerated: round.isModerated });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/admin/trivia/:id/moderation", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id) || typeof req.body?.isModerated !== "boolean") {
+      throw badRequest("Choose whether to hide or restore this question.");
+    }
+    const trivia = await DailyTrivia.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isModerated: req.body.isModerated } },
+      { new: true }
+    );
+    if (!trivia) return res.status(404).json({ error: "Question not found." });
+    return res.json({ id: String(trivia._id), isModerated: trivia.isModerated });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/admin/truths/:id/close", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Round not found." });
+    }
+    const round = await TruthRound.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isClosed: true } },
+      { new: true }
+    );
+    if (!round) return res.status(404).json({ error: "Round not found." });
+    return res.json({ id: String(round._id), isClosed: round.isClosed });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/admin/trivia/:id/close", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Question not found." });
+    }
+    const trivia = await DailyTrivia.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isClosed: true } },
+      { new: true }
+    );
+    if (!trivia) return res.status(404).json({ error: "Question not found." });
+    return res.json({ id: String(trivia._id), isClosed: trivia.isClosed });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get("/", async (req, res, next) => {
   try {
     const memberId = req.query.memberId || "";
     if (memberId) await findActiveMember(memberId);
     const date = todayKey();
+    const roundQuery = { date };
+    if (memberId) {
+      roundQuery.$or = [
+        { isModerated: { $ne: true } },
+        { author: memberId },
+      ];
+    } else {
+      roundQuery.isModerated = { $ne: true };
+    }
     const [members, rounds, trivia, truthScores, triviaScores] = await Promise.all([
       Member.find({ isActive: true }).select("name imageUrl").sort({ name: 1 }).lean(),
-      TruthRound.find({ date })
+      TruthRound.find(roundQuery)
         .populate({ path: "author", select: "name imageUrl" })
         .lean(),
-      DailyTrivia.findOne({ date })
+      DailyTrivia.findOne({ date, isModerated: { $ne: true } })
         .populate({ path: "author", select: "name imageUrl" })
         .lean(),
       TruthRound.aggregate([
+        { $match: { isModerated: { $ne: true } } },
         { $unwind: "$guesses" },
         { $match: { "guesses.isCorrect": true } },
         { $group: { _id: "$guesses.member", points: { $sum: 1 } } },
       ]),
       DailyTrivia.aggregate([
+        { $match: { isModerated: { $ne: true } } },
         { $unwind: "$answers" },
         {
           $group: {
@@ -101,7 +274,7 @@ router.get("/", async (req, res, next) => {
     const triviaAnswer = trivia?.answers.find(
       (answer) => String(answer.member) === String(memberId)
     );
-    const triviaAuthor = trivia && String(trivia.author._id) === String(memberId);
+    const triviaAuthor = trivia?.author && String(trivia.author._id) === String(memberId);
 
     return res.json({
       date,
@@ -112,17 +285,21 @@ router.get("/", async (req, res, next) => {
         ? {
             _id: trivia._id,
             author: trivia.author,
+            authorName: trivia.author?.name || "FriendsZone admin",
             question: trivia.question,
             options: trivia.options,
             isAuthor: Boolean(triviaAuthor),
+            isClosed: trivia.isClosed,
+            isModerated: trivia.isModerated,
             answersCount: trivia.answers.length,
             hasAnswered: Boolean(triviaAnswer),
             answerIsCorrect: triviaAnswer?.isCorrect ?? null,
             answerIndex: triviaAnswer?.optionIndex ?? null,
-            correctIndex: triviaAnswer || triviaAuthor ? trivia.correctIndex : null,
+            correctIndex: triviaAnswer || triviaAuthor || trivia.isClosed ? trivia.correctIndex : null,
           }
         : null,
       triviaParticipants: trivia?.answers.length || 0,
+      prompts: await GamePrompt.find().sort({ createdAt: -1 }).limit(30).lean(),
       leaderboard,
     });
   } catch (error) {
@@ -175,15 +352,21 @@ router.post("/truths/:id/guess", async (req, res, next) => {
     const existingRound = await TruthRound.findOne({
       _id: req.params.id,
       date: todayKey(),
-    }).select("author lieIndex");
+    isModerated: { $ne: true },
+    }).select("author lieIndex isClosed");
     if (!existingRound) return res.status(404).json({ error: "That round was not found." });
     if (String(existingRound.author) === String(member._id)) {
-      throw badRequest("You cannot guess your own round.");
+    throw badRequest("You cannot guess your own round.");
+    }
+    if (existingRound.isClosed) {
+    return res.status(409).json({ error: "This round is closed to new guesses." });
     }
     const round = await TruthRound.findOneAndUpdate(
-      {
-        _id: existingRound._id,
-        author: { $ne: member._id },
+    {
+      _id: existingRound._id,
+      author: { $ne: member._id },
+      isClosed: { $ne: true },
+      isModerated: { $ne: true },
         guesses: { $not: { $elemMatch: { member: member._id } } },
       },
       {
@@ -256,14 +439,24 @@ router.post("/trivia/answer", async (req, res, next) => {
     if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex > 3) {
       throw badRequest("Choose one of the four answer options.");
     }
-    const existingTrivia = await DailyTrivia.findOne({ date: todayKey() })
-      .select("correctIndex");
+    const existingTrivia = await DailyTrivia.findOne({
+      date: todayKey(),
+      isModerated: { $ne: true },
+    }).select("correctIndex isClosed answers");
     if (!existingTrivia) {
       return res.status(404).json({ error: "Today's trivia question is not ready yet." });
+    }
+    if (existingTrivia.isClosed) {
+      return res.status(409).json({ error: "Today's trivia is closed to new answers." });
+    }
+    if (existingTrivia.answers.some((answer) => String(answer.member) === String(member._id))) {
+      return res.status(409).json({ error: "You have already answered today's trivia." });
     }
     const trivia = await DailyTrivia.findOneAndUpdate(
       {
         _id: existingTrivia._id,
+        isClosed: { $ne: true },
+        isModerated: { $ne: true },
         answers: { $not: { $elemMatch: { member: member._id } } },
       },
       {

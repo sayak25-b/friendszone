@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Menu, X, Heart } from "lucide-react";
-import { GOOGLE_FORM_URL } from "../data/websiteData";
 
 const links = [
   { name: "Home", path: "/" },
   { name: "Memory Lane", path: "/memories" },
   { name: "Events", path: "/events" },
   { name: "Members", path: "/members" },
+  { name: "Play Zone", path: "/play-zone" },
   { name: "Birthday Calendar", path: "/birthday-calendar" },
   { name: "Awards", path: "/awards" }
 ];

@@ -21,6 +21,8 @@ const truthRoundSchema = new mongoose.Schema(
       },
     },
     lieIndex: { type: Number, required: true, min: 0, max: 2 },
+    isClosed: { type: Boolean, default: false },
+    isModerated: { type: Boolean, default: false },
     guesses: { type: [guessSchema], default: [] },
   },
   { timestamps: true }
@@ -40,7 +42,7 @@ const triviaAnswerSchema = new mongoose.Schema(
 const dailyTriviaSchema = new mongoose.Schema(
   {
     date: { type: String, required: true, unique: true },
-    author: { type: mongoose.Schema.Types.ObjectId, ref: "Member", required: true },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "Member", default: null },
     question: { type: String, required: true, trim: true, maxlength: 240 },
     options: {
       type: [{ type: String, required: true, trim: true, maxlength: 160 }],
@@ -50,6 +52,8 @@ const dailyTriviaSchema = new mongoose.Schema(
       },
     },
     correctIndex: { type: Number, required: true, min: 0, max: 3 },
+    isClosed: { type: Boolean, default: false },
+    isModerated: { type: Boolean, default: false },
     answers: { type: [triviaAnswerSchema], default: [] },
   },
   { timestamps: true }
@@ -57,3 +61,15 @@ const dailyTriviaSchema = new mongoose.Schema(
 
 export const TruthRound = mongoose.model("TruthRound", truthRoundSchema);
 export const DailyTrivia = mongoose.model("DailyTrivia", dailyTriviaSchema);
+
+const gamePromptSchema = new mongoose.Schema(
+  {
+    game: { type: String, enum: ["truths", "trivia"], required: true },
+    text: { type: String, required: true, trim: true, maxlength: 240 },
+  },
+  { timestamps: true }
+);
+
+gamePromptSchema.index({ game: 1, text: 1 }, { unique: true });
+
+export const GamePrompt = mongoose.model("GamePrompt", gamePromptSchema);

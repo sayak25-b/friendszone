@@ -9,6 +9,7 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { apiRequest } from "../lib/api";
 
 const MEMBER_KEY = "friendszone-play-zone-member";
@@ -176,20 +177,23 @@ export default function PlayZone() {
   const selectedMember = members.find((member) => member._id === memberId);
 
   return (
-    <section id="play-zone" className="scroll-mt-24 bg-gradient-to-br from-violet-50 via-white to-pink-50 py-16 sm:py-20">
+    <main className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-pink-50 py-12 sm:py-16">
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
         <div className="mb-9 flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.2em] text-violet-600">
               <Gamepad2 size={17} /> Play Zone
             </p>
-            <h2 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
               More laughs, <span className="text-violet-600">more points.</span>
-            </h2>
+            </h1>
             <p className="mt-3 max-w-2xl leading-7 text-slate-500">
               Take a turn, test your friend knowledge, and see who knows the
               group best.
             </p>
+            <Link to="/admin" className="mt-3 inline-flex text-sm font-bold text-violet-700 hover:text-pink-600">
+              Admin controls <span aria-hidden="true" className="ml-1">→</span>
+            </Link>
           </div>
           <label className="min-w-52">
             <span className="mb-2 block text-sm font-bold text-slate-700">
@@ -260,6 +264,24 @@ export default function PlayZone() {
                   <p className="mb-3 text-sm font-extrabold text-violet-900">
                     Your turn to fool the group
                   </p>
+                  {gameState.prompts?.some((item) => item.game === "truths") && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {gameState.prompts.filter((item) => item.game === "truths").slice(0, 4).map((item) => (
+                        <button
+                          key={item._id}
+                          type="button"
+                          onClick={() => setStatements((current) => {
+                            const index = current.findIndex((statement) => !statement.trim());
+                            const targetIndex = index < 0 ? 0 : index;
+                            return current.map((statement, itemIndex) => itemIndex === targetIndex ? item.text : statement);
+                          })}
+                          className="rounded-full border border-violet-200 bg-white px-3 py-1.5 text-left text-xs font-semibold text-violet-800 hover:bg-violet-100"
+                        >
+                          Idea: {item.text}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="space-y-3">
                     {statements.map((statement, index) => (
                       <div key={index} className="flex items-center gap-2">
@@ -316,6 +338,7 @@ export default function PlayZone() {
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <p className="text-sm font-extrabold text-slate-800">
                           {isOwnRound ? "Your round" : `${round.author.name}'s round`}
+                          {round.isModerated ? " · hidden by admin" : ""}
                         </p>
                         <span className="text-xs font-medium text-slate-400">
                           {round.guessesCount} {round.guessesCount === 1 ? "guess" : "guesses"}
@@ -329,7 +352,7 @@ export default function PlayZone() {
                             <button
                               key={index}
                               type="button"
-                              disabled={!selectedMember || isOwnRound || round.hasGuessed || saving === `guess-${round._id}`}
+                              disabled={!selectedMember || isOwnRound || round.hasGuessed || round.isClosed || round.isModerated || saving === `guess-${round._id}`}
                               onClick={() => guessLie(round._id, index)}
                               className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
                                 revealed && isLie
@@ -352,6 +375,9 @@ export default function PlayZone() {
                         <p className={`mt-3 text-xs font-bold ${round.guessedCorrectly ? "text-emerald-700" : "text-slate-500"}`}>
                           {round.guessedCorrectly ? "Correct guess — +1 point!" : "The lie is revealed above."}
                         </p>
+                      )}
+                      {round.isClosed && (
+                        <p className="mt-3 text-xs font-bold text-slate-500">This round is closed.</p>
                       )}
                       {isOwnRound && (
                         <p className="mt-3 text-xs font-semibold text-violet-600">
@@ -393,6 +419,15 @@ export default function PlayZone() {
                   <p className="mb-3 text-xs leading-5 text-amber-800">
                     Pick a group memory, college moment, favourite or inside joke.
                   </p>
+                  {gameState.prompts?.some((item) => item.game === "trivia") && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {gameState.prompts.filter((item) => item.game === "trivia").slice(0, 4).map((item) => (
+                        <button key={item._id} type="button" onClick={() => setQuestion(item.text)} className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-left text-xs font-semibold text-amber-800 hover:bg-amber-100">
+                          {item.text}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <input
                     required
                     maxLength={240}
@@ -448,7 +483,7 @@ export default function PlayZone() {
               {activeTrivia ? (
                 <div className="mt-6 rounded-2xl bg-amber-50 p-5">
                   <div className="mb-4 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-amber-700">
-                    <CircleHelp size={15} /> Today's question · by {activeTrivia.author.name}
+                    <CircleHelp size={15} /> Today's question · by {activeTrivia.authorName}{activeTrivia.isClosed ? " · closed" : ""}
                   </div>
                   <h4 className="text-lg font-extrabold leading-7 text-slate-900">
                     {activeTrivia.question}
@@ -461,7 +496,7 @@ export default function PlayZone() {
                         <button
                           key={index}
                           type="button"
-                          disabled={!selectedMember || activeTrivia.isAuthor || activeTrivia.hasAnswered || saving === "trivia-answer"}
+                          disabled={!selectedMember || activeTrivia.isAuthor || activeTrivia.hasAnswered || activeTrivia.isClosed || saving === "trivia-answer"}
                           onClick={() => answerTrivia(index)}
                           className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm transition ${
                             revealed && isCorrect
@@ -489,7 +524,10 @@ export default function PlayZone() {
                       You set today's question — see how many friends get it right!
                     </p>
                   )}
-                  {!activeTrivia.isAuthor && !activeTrivia.hasAnswered && selectedMember && (
+                  {activeTrivia.isClosed && (
+                    <p className="mt-4 text-sm font-semibold text-slate-600">This trivia poll is closed.</p>
+                  )}
+                  {!activeTrivia.isAuthor && !activeTrivia.hasAnswered && !activeTrivia.isClosed && selectedMember && (
                     <p className="mt-4 flex items-center gap-2 text-xs text-amber-800">
                       <Lightbulb size={14} /> One chance to answer today.
                     </p>
@@ -515,7 +553,7 @@ export default function PlayZone() {
                 </div>
               </div>
               <ol className="mt-5 space-y-3">
-                {gameState.leaderboard.slice(0, 8).map((member, index) => (
+                {gameState.leaderboard.map((member, index) => (
                   <li
                     key={member._id}
                     className={`flex items-center gap-3 rounded-xl px-3 py-3 ${
@@ -546,6 +584,6 @@ export default function PlayZone() {
           </div>
         ) : null}
       </div>
-    </section>
+    </main>
   );
 }
