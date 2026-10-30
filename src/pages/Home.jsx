@@ -10,11 +10,12 @@ import {
   CalendarDays,
   Users,
   Sparkles,
+  Gamepad2,
 } from "lucide-react";
-import { GOOGLE_FORM_URL } from "../data/websiteData";
 import useApiData from "../hooks/useApiData";
 import { apiAssetUrl } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
+import PlayZone from "../components/PlayZone";
 
 function MemoryCarousel() {
   const [start, setStart] = useState(0);
@@ -172,6 +173,12 @@ export default function Home() {
               >
                 <Images size={19} /> Explore Memories
               </Link>
+              <a
+                href="#play-zone"
+                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-7 py-4 font-bold text-pink-700 transition hover:bg-pink-50"
+              >
+                <Gamepad2 size={19} /> Play Zone
+              </a>
             </div>
 
             <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-slate-500">
@@ -215,6 +222,7 @@ export default function Home() {
       </section>
 
       <MemoryCarousel />
+      <PlayZone />
 
       <section className="bg-gradient-to-r from-violet-600 to-pink-500 py-16 text-white sm:py-20">
         <div className="mx-auto max-w-5xl px-5 text-center">
@@ -238,8 +246,14 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:grid-cols-3 lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
         {[
+          {
+            icon: <Gamepad2 size={24} />,
+            title: "Play Zone",
+            description: "Guess the lies, play daily trivia, and climb the leaderboard.",
+            link: "#play-zone",
+          },
           {
             icon: <Images size={24} />,
             title: "Memories",
