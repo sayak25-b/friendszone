@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Brain,
+  Check,
   CircleHelp,
   Gamepad2,
   Lightbulb,
@@ -345,34 +346,38 @@ export default function PlayZone() {
                       </div>
                       <div className="space-y-2">
                         {round.statements.map((statement, index) => {
+                          const isLie = round.lieIndex === index;
+                          const revealed = round.lieIndex !== null;
                           return (
                             <button
                               key={index}
                               type="button"
                               disabled={!selectedMember || isOwnRound || round.hasGuessed || round.isClosed || round.isModerated || saving === `guess-${round._id}`}
                               onClick={() => guessLie(round._id, index)}
-                              className="flex w-full items-start gap-3 rounded-xl border border-slate-100 px-3 py-2.5 text-left text-sm text-slate-700 transition hover:border-violet-300 hover:bg-violet-50 disabled:cursor-default"
+                              className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                                revealed && isLie
+                                  ? "border-pink-300 bg-pink-50 text-pink-900"
+                                  : revealed
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                                    : "border-slate-100 text-slate-700 hover:border-violet-300 hover:bg-violet-50"
+                              } disabled:cursor-default`}
                             >
                               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-violet-600">
                                 {index + 1}
                               </span>
                               <span className="flex-1">{statement}</span>
+                              {revealed && isLie && <span className="text-xs font-extrabold">Lie</span>}
                             </button>
                           );
                         })}
                       </div>
                       {round.hasGuessed && (
-                        <p className="mt-3 text-xs font-bold text-slate-500">
-                          Your guess has been recorded.
+                        <p className={`mt-3 text-xs font-bold ${round.guessedCorrectly ? "text-emerald-700" : "text-slate-500"}`}>
+                          {round.guessedCorrectly ? "Correct guess — +1 point!" : "Not quite — the lie is revealed above."}
                         </p>
                       )}
                       {round.isClosed && (
                         <p className="mt-3 text-xs font-bold text-slate-500">This round is closed.</p>
-                      )}
-                      {isOwnRound && (
-                        <p className="mt-3 text-xs font-semibold text-violet-600">
-                          Your round is live. Check the leaderboard for your points.
-                        </p>
                       )}
                       {selectedMember && !isOwnRound && !round.hasGuessed && (
                         <p className="mt-3 text-xs text-slate-400">Tap a statement to lock in your guess.</p>
@@ -480,16 +485,24 @@ export default function PlayZone() {
                   </h4>
                   <div className="mt-4 space-y-2">
                     {activeTrivia.options.map((option, index) => {
+                      const revealed = activeTrivia.correctIndex !== null;
+                      const isCorrect = index === activeTrivia.correctIndex;
                       return (
                         <button
                           key={index}
                           type="button"
                           disabled={!selectedMember || activeTrivia.isAuthor || activeTrivia.hasAnswered || activeTrivia.isClosed || saving === "trivia-answer"}
                           onClick={() => answerTrivia(index)}
-                          className="flex w-full items-center gap-3 rounded-xl border border-amber-200 bg-white px-3 py-3 text-left text-sm text-slate-700 transition hover:border-amber-400 hover:bg-amber-100 disabled:cursor-default"
+                          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm transition ${
+                            revealed && isCorrect
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                              : revealed
+                                ? "border-amber-100 bg-white/70 text-slate-500"
+                                : "border-amber-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-100"
+                          } disabled:cursor-default`}
                         >
                           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-current text-xs font-bold">
-                            {String.fromCharCode(65 + index)}
+                            {revealed && isCorrect ? <Check size={14} /> : String.fromCharCode(65 + index)}
                           </span>
                           <span>{option}</span>
                         </button>
@@ -497,8 +510,8 @@ export default function PlayZone() {
                     })}
                   </div>
                   {activeTrivia.hasAnswered && (
-                    <p className="mt-4 text-sm font-bold text-slate-600">
-                      Your answer has been recorded.
+                    <p className={`mt-4 text-sm font-bold ${activeTrivia.answerIsCorrect ? "text-emerald-700" : "text-slate-600"}`}>
+                      {activeTrivia.answerIsCorrect ? "That's right — +1 point!" : "Not quite. The answer is highlighted."}
                     </p>
                   )}
                   {activeTrivia.isAuthor && (

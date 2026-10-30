@@ -78,8 +78,10 @@ function safeRound(round, memberId) {
     statements: round.statements,
     guessesCount: round.guesses.length,
     hasGuessed: Boolean(viewerGuess),
+    guessedCorrectly: viewerGuess?.isCorrect ?? null,
     isClosed: round.isClosed,
     isModerated: round.isModerated,
+    lieIndex: viewerGuess ? round.lieIndex : null,
   };
 }
 
@@ -330,6 +332,8 @@ router.get("/", async (req, res, next) => {
             isModerated: trivia.isModerated,
             answersCount: trivia.answers.length,
             hasAnswered: Boolean(triviaAnswer),
+            answerIsCorrect: triviaAnswer?.isCorrect ?? null,
+            correctIndex: triviaAnswer ? trivia.correctIndex : null,
           }
         : null,
       triviaParticipants: trivia?.answers.length || 0,
