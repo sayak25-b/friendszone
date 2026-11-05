@@ -50,11 +50,64 @@ img {
   overflow: hidden;
 }
 
-.home-fireworks-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  mix-blend-mode: screen;
+.home-firework {
+  position: absolute;
+  width: clamp(4rem, 8vw, 6rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    var(--firework-color) 0deg 2deg,
+    transparent 2deg 15deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 0 12%, #000 16% 58%, transparent 72%);
+  mask: radial-gradient(circle, transparent 0 12%, #000 16% 58%, transparent 72%);
+  opacity: 0;
+  transform: scale(0.35);
+  animation: home-firework-burst 3.6s ease-out infinite;
+}
+
+.home-firework-one {
+  top: 16%;
+  left: 18%;
+  --firework-color: #f59e0b;
+}
+
+.home-firework-two {
+  top: 22%;
+  right: 16%;
+  --firework-color: #ec4899;
+  animation-delay: 1.2s;
+}
+
+.home-firework-three {
+  top: 62%;
+  left: 53%;
+  --firework-color: #8b5cf6;
+  animation-delay: 2.4s;
+}
+
+@keyframes home-firework-burst {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  18% {
+    opacity: 0.75;
+    transform: scale(0.8);
+  }
+  58% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-firework {
+    animation: none;
+    opacity: 0.2;
+    transform: scale(0.75);
+  }
 }
 
 .firework {
