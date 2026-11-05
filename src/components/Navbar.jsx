@@ -24,8 +24,27 @@ export default function Navbar() {
     }`;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-violet-100 bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-amber-200 bg-gradient-to-r from-orange-50 via-white to-amber-50 shadow-md">
+        <div className="diwali-fireworks pointer-events-none absolute inset-0 overflow-hidden">
+  {/* Rockets */}
+  <span className="rocket rocket-one">🚀</span>
+  <span className="rocket rocket-two">🚀</span>
+
+  {/* Crackers and sparkles */}
+  <span className="cracker cracker-one">🎆</span>
+  <span className="cracker cracker-two">🎇</span>
+  <span className="cracker cracker-three">✨</span>
+
+  {/* Tubri */}
+  <span className="tubri tubri-one">🎇</span>
+  <span className="tubri tubri-two">✨</span>
+
+  {/* Diya
+  <span className="diya">🪔</span> */}
+</div>
+      
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
+        
         <Link
           to="/"
           onClick={() => setMenuOpen(false)}

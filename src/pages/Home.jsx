@@ -134,10 +134,16 @@ export default function Home() {
   return (
     <main>
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-violet-50 via-white to-pink-50">
+        <div className="home-fireworks pointer-events-none absolute inset-0" aria-hidden="true">
+          <span className="home-firework home-firework-one" />
+          <span className="home-firework home-firework-two" />
+          <span className="home-firework home-firework-three" />
+        </div>
+
         <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-72 w-72 rounded-full bg-pink-200/40 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -left-20 -z-10 h-72 w-72 rounded-full bg-violet-200/50 blur-3xl" />
 
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2 lg:px-8 lg:py-28">
+        <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2 lg:px-8 lg:py-28">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white px-4 py-2 text-sm font-bold text-violet-700 shadow-sm">
               <Sparkles size={16} />
