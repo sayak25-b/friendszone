@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -17,24 +17,31 @@ import { apiAssetUrl } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
 
 function MemoryCarousel() {
-  const [start, setStart] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const { data: memories, loading, error } = useApiData("/memories");
 
   const latestMemories = [...memories].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
+  const activeIndex = currentIndex % latestMemories.length;
+  const activeMemory = latestMemories[activeIndex];
 
-  const visibleMemories = Array.from(
-    { length: Math.min(5, latestMemories.length) },
-    (_, index) => latestMemories[(start + index) % latestMemories.length]
-  );
+  useEffect(() => {
+    if (latestMemories.length < 2) return undefined;
+
+    const timer = window.setInterval(() => {
+      setCurrentIndex((index) => (index + 1) % latestMemories.length);
+    }, 6000);
+
+    return () => window.clearInterval(timer);
+  }, [currentIndex, latestMemories.length]);
 
   const next = () => {
-    setStart((current) => (current + 1) % latestMemories.length);
+    setCurrentIndex((current) => (current + 1) % latestMemories.length);
   };
 
   const previous = () => {
-    setStart(
+    setCurrentIndex(
       (current) =>
         (current - 1 + latestMemories.length) % latestMemories.length
     );
@@ -52,69 +59,86 @@ function MemoryCarousel() {
   }
 
   return (
-    <section className="bg-white py-16 sm:py-20">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-violet-600">
-              Our little time machine
-            </p>
-            <h2 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
-              Latest <span className="text-violet-600">Memories</span>
-            </h2>
-            <p className="mt-3 max-w-xl text-slate-500">
-              Five glimpses of the laughter, friendship and moments we share.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={previous}
-              aria-label="Previous memories"
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-violet-200 text-violet-700 transition hover:bg-violet-600 hover:text-white"
-            >
-              <ChevronLeft size={23} />
-            </button>
-            <button
-              type="button"
-              onClick={next}
-              aria-label="Next memories"
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-white transition hover:bg-pink-500"
-            >
-              <ChevronRight size={23} />
-            </button>
-          </div>
+    <section className="bg-white py-14 sm:py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-7">
+          <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-violet-600">
+            Our little time machine
+          </p>
+          <h2 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
+            Latest <span className="text-violet-600">Memories</span>
+          </h2>
+          <p className="mt-3 max-w-xl text-slate-500">
+            Revisit the laughter, friendship and moments we share.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {visibleMemories.map((memory, index) => (
-            <article
-              key={`${memory._id}-${start}-${index}`}
-              className="group overflow-hidden rounded-3xl border border-violet-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-            >
-              <div className="relative h-64 overflow-hidden">
-                <img
-                  src={apiAssetUrl(memory.imageUrl)}
-                  alt={memory.title}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
-                <span className="absolute bottom-4 left-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-violet-700">
-                  {formatMonthYear(memory.date)}
+        <div
+          className="relative isolate min-h-[440px] overflow-hidden rounded-3xl bg-slate-900 shadow-xl sm:min-h-[480px] sm:rounded-[2rem] lg:min-h-[520px]"
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Latest memories"
+        >
+          <img
+            key={activeMemory._id}
+            src={apiAssetUrl(activeMemory.imageUrl)}
+            alt={activeMemory.title}
+            className="absolute inset-0 z-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/10 sm:bg-gradient-to-r sm:from-slate-950/90 sm:via-slate-950/55 sm:to-slate-950/10" />
+
+          <button
+            type="button"
+            onClick={previous}
+            aria-label="Previous memory"
+            className="absolute left-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-slate-950/40 text-white backdrop-blur transition hover:bg-white hover:text-violet-700 sm:left-5 sm:h-12 sm:w-12"
+          >
+            <ChevronLeft size={23} />
+          </button>
+          <button
+            type="button"
+            onClick={next}
+            aria-label="Next memory"
+            className="absolute right-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-slate-950/40 text-white backdrop-blur transition hover:bg-white hover:text-violet-700 sm:right-5 sm:h-12 sm:w-12"
+          >
+            <ChevronRight size={23} />
+          </button>
+
+          <div
+            key={activeMemory._id}
+            className="relative z-20 flex min-h-[440px] items-end px-14 pb-8 pt-16 sm:min-h-[480px] sm:px-20 sm:pb-10 lg:min-h-[520px] lg:px-24 lg:pb-12"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <article className="w-full max-w-2xl text-white">
+              <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wider backdrop-blur sm:text-sm">
+                {formatMonthYear(activeMemory.date)}
+              </span>
+              <h3 className="mt-4 text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+                {activeMemory.title}
+              </h3>
+              {activeMemory.description && (
+                <p className="mt-4 line-clamp-3 max-w-xl text-sm leading-6 text-white/85 sm:text-base sm:leading-7">
+                  {activeMemory.description}
+                </p>
+              )}
+              <div className="mt-6 flex items-center gap-2" aria-hidden="true">
+                {latestMemories.map((memory, index) => (
+                  <span
+                    key={memory._id}
+                    className={`h-1.5 rounded-full transition-all ${
+                      index === activeIndex
+                        ? "w-8 bg-white"
+                        : "w-1.5 bg-white/50"
+                    }`}
+                  />
+                ))}
+                <span className="ml-2 text-xs font-semibold text-white/75">
+                  {activeIndex + 1} / {latestMemories.length}
                 </span>
               </div>
-              <div className="p-5">
-                <h3 className="line-clamp-2 font-extrabold text-slate-900">
-                  {memory.title}
-                </h3>
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
-                  {memory.description}
-                </p>
-              </div>
             </article>
-          ))}
+          </div>
         </div>
 
         <div className="mt-8 text-center">
