@@ -74,55 +74,63 @@ function MemoryCarousel() {
         </div>
 
         <div
-          className="relative isolate min-h-[440px] overflow-hidden rounded-3xl bg-slate-900 shadow-xl sm:min-h-[480px] sm:rounded-[2rem] lg:min-h-[520px]"
+          className="overflow-hidden rounded-3xl bg-slate-950 shadow-xl sm:rounded-[2rem]"
           role="region"
           aria-roledescription="carousel"
           aria-label="Latest memories"
         >
-          <img
-            key={activeMemory._id}
-            src={apiAssetUrl(activeMemory.imageUrl)}
-            alt={activeMemory.title}
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/10 sm:bg-gradient-to-r sm:from-slate-950/90 sm:via-slate-950/55 sm:to-slate-950/10" />
+          <div className="relative flex h-[clamp(240px,58svh,520px)] items-center justify-center overflow-hidden bg-slate-900 sm:h-[clamp(320px,65svh,560px)]">
+            <img
+              key={`${activeMemory._id}-backdrop`}
+              src={apiAssetUrl(activeMemory.imageUrl)}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-2xl"
+            />
+            <img
+              key={activeMemory._id}
+              src={apiAssetUrl(activeMemory.imageUrl)}
+              alt={activeMemory.title}
+              className="relative z-10 h-full w-full object-contain"
+            />
 
-          <button
-            type="button"
-            onClick={previous}
-            aria-label="Previous memory"
-            className="absolute left-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-slate-950/40 text-white backdrop-blur transition hover:bg-white hover:text-violet-700 sm:left-5 sm:h-12 sm:w-12"
-          >
-            <ChevronLeft size={23} />
-          </button>
-          <button
-            type="button"
-            onClick={next}
-            aria-label="Next memory"
-            className="absolute right-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-slate-950/40 text-white backdrop-blur transition hover:bg-white hover:text-violet-700 sm:right-5 sm:h-12 sm:w-12"
-          >
-            <ChevronRight size={23} />
-          </button>
+            <button
+              type="button"
+              onClick={previous}
+              aria-label="Previous memory"
+              className="absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-slate-950/50 text-white backdrop-blur transition hover:bg-white hover:text-violet-700 sm:left-5 sm:h-12 sm:w-12"
+            >
+              <ChevronLeft size={23} />
+            </button>
+            <button
+              type="button"
+              onClick={next}
+              aria-label="Next memory"
+              className="absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-slate-950/50 text-white backdrop-blur transition hover:bg-white hover:text-violet-700 sm:right-5 sm:h-12 sm:w-12"
+            >
+              <ChevronRight size={23} />
+            </button>
+          </div>
 
           <div
-            key={activeMemory._id}
-            className="relative z-20 flex min-h-[440px] items-end px-14 pb-8 pt-16 sm:min-h-[480px] sm:px-20 sm:pb-10 lg:min-h-[520px] lg:px-24 lg:pb-12"
+            key={`${activeMemory._id}-caption`}
+            className="bg-gradient-to-r from-slate-950 via-violet-950 to-slate-950 px-6 py-6 text-white sm:px-10 sm:py-8 lg:px-12"
             aria-live="polite"
             aria-atomic="true"
           >
-            <article className="w-full max-w-2xl text-white">
-              <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wider backdrop-blur sm:text-sm">
+            <article className="mx-auto w-full max-w-5xl">
+              <span className="inline-flex rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider sm:text-sm">
                 {formatMonthYear(activeMemory.date)}
               </span>
-              <h3 className="mt-4 text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+              <h3 className="mt-4 text-2xl font-black leading-tight sm:text-3xl lg:text-4xl">
                 {activeMemory.title}
               </h3>
               {activeMemory.description && (
-                <p className="mt-4 line-clamp-3 max-w-xl text-sm leading-6 text-white/85 sm:text-base sm:leading-7">
+                <p className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-6 text-white/80 sm:text-base sm:leading-7">
                   {activeMemory.description}
                 </p>
               )}
-              <div className="mt-6 flex items-center gap-2" aria-hidden="true">
+              <div className="mt-5 flex items-center gap-2" aria-hidden="true">
                 {latestMemories.map((memory, index) => (
                   <span
                     key={memory._id}
