@@ -139,6 +139,25 @@ export default function Home() {
           <span className="home-firework home-firework-two" />
           <span className="home-firework home-firework-three" />
         </div>
+               <div className="diwali-fireworks pointer-events-none absolute inset-0 overflow-hidden">
+  {/* Rockets */}
+  <span className="rocket rocket-one">🚀</span>
+  <span className="rocket rocket-two">🚀</span>
+
+  {/* Crackers and sparkles */}
+  {/* <span className="cracker cracker-one">🎆</span>
+  <span className="cracker cracker-two">🎇</span> */}
+  
+  <span className="rocket rocket-two">🚀</span>
+  <span className="cracker cracker-three">✨</span>
+
+  {/* Tubri */}
+  <span className="tubri tubri-one">🎇</span>
+  <span className="tubri tubri-two">✨</span>
+
+  {/* Diya
+  <span className="diya">🪔</span> */}
+</div>
 
         <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-72 w-72 rounded-full bg-pink-200/40 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -left-20 -z-10 h-72 w-72 rounded-full bg-violet-200/50 blur-3xl" />
@@ -249,7 +268,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:grid-cols-2 lg:grid-cols-4 lg:px-8 ">
         {[
           {
             icon: <Gamepad2 size={24} />,
