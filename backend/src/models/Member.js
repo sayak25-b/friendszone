@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const memberSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
+    nickname: { type: String, trim: true, maxlength: 100, default: "" },
     role: {
       type: String,
       trim: true,
@@ -11,8 +12,13 @@ const memberSchema = new mongoose.Schema(
     },
     city: { type: String, trim: true, maxlength: 120, default: "" },
     bio: { type: String, trim: true, maxlength: 2000, default: "" },
+    birthday: { type: Date, default: null },
+    hobbies: { type: String, trim: true, maxlength: 1000, default: "" },
+    interests: { type: String, trim: true, maxlength: 1000, default: "" },
+    favoriteThings: { type: String, trim: true, maxlength: 1000, default: "" },
 
     imageUrl: { type: String, required: true, trim: true, maxlength: 2048 },
+    coverPhotoUrl: { type: String, trim: true, maxlength: 2048, default: "" },
     joinedAt: { type: Date, default: Date.now },
     email: {
       type: String,
@@ -23,6 +29,7 @@ const memberSchema = new mongoose.Schema(
     },
     instagram: { type: String, trim: true, maxlength: 2048, default: "" },
     website: { type: String, trim: true, maxlength: 2048, default: "" },
+    otherLinks: { type: String, trim: true, maxlength: 2048, default: "" },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

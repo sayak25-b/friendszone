@@ -13,6 +13,23 @@ import useApiData from "../hooks/useApiData";
 import { apiAssetUrl } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
 
+function safeSocialUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function otherSocialLinks(value) {
+  return (value || "")
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .map((url) => safeSocialUrl(url))
+    .filter(Boolean);
+}
+
 export default function Members() {
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
@@ -24,6 +41,7 @@ export default function Members() {
 
       return (
         member.name.toLowerCase().includes(query) ||
+        (member.nickname || "").toLowerCase().includes(query) ||
         (member.city || "").toLowerCase().includes(query) ||
         (member.role || "").toLowerCase().includes(query) ||
         (member.bio || "").toLowerCase().includes(query)
@@ -174,10 +192,17 @@ export default function Members() {
               >
   <div className="relative m-3 mb-0 h-64 overflow-hidden rounded-[1.3rem] bg-gradient-to-br from-violet-100 to-pink-100">
   <img
+    src={apiAssetUrl(member.coverPhotoUrl || member.imageUrl)}
+    alt=""
+    aria-hidden="true"
+    loading="lazy"
+    className="h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+  />
+  <img
     src={apiAssetUrl(member.imageUrl)}
     alt={member.name}
     loading="lazy"
-    className="h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+    className="absolute bottom-3 left-3 h-16 w-16 rounded-full border-4 border-white object-cover shadow-lg"
   />
 
 
@@ -200,7 +225,7 @@ export default function Members() {
 
                 <div className="p-5 pt-4">
                   <h3 className="truncate text-lg font-extrabold text-slate-900">
-                    {member.name}
+                    {member.name}{member.nickname && <span className="ml-2 font-semibold text-slate-500">“{member.nickname}”</span>}
                   </h3>
 
                   <p className="mt-1 text-sm font-medium text-violet-600">
@@ -272,15 +297,21 @@ export default function Members() {
               <X size={20} />
             </button>
 
-            <div className="h-64 overflow-hidden bg-violet-100">
+            <div className="relative h-64 bg-violet-100">
+              <img
+                src={apiAssetUrl(selectedMember.coverPhotoUrl || selectedMember.imageUrl)}
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full object-cover"
+              />
               <img
                 src={apiAssetUrl(selectedMember.imageUrl)}
                 alt={selectedMember.name}
-                className="h-full w-full object-cover"
+                className="absolute bottom-0 left-7 h-20 w-20 translate-y-1/2 rounded-2xl border-4 border-white object-cover shadow-lg"
               />
             </div>
 
-            <div className="p-7">
+            <div className="p-7 pt-10">
               <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-violet-600">
                 Part of our circle
               </p>
@@ -289,6 +320,7 @@ export default function Members() {
                 className="mt-2 text-2xl font-black text-slate-900"
               >
                 {selectedMember.name}
+                {selectedMember.nickname && <span className="ml-2 text-lg font-semibold text-slate-500">“{selectedMember.nickname}”</span>}
               </h2>
               <p className="mt-2 font-semibold text-pink-600">
                 {selectedMember.role || "FriendsZone Member"}
@@ -301,17 +333,39 @@ export default function Members() {
                 </p>
               )}
 
+              {selectedMember.birthday && (
+                <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+                  <span aria-hidden="true">🎂</span>
+                  {new Date(selectedMember.birthday).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  })}
+                </p>
+              )}
+
               {selectedMember.bio && (
                 <p className="mt-4 leading-7 text-slate-600">
                   {selectedMember.bio}
                 </p>
               )}
 
-              {(selectedMember.instagram || selectedMember.website) && (
+              {[
+                ["Hobbies", selectedMember.hobbies],
+                ["Interests", selectedMember.interests],
+                ["Favourite things", selectedMember.favoriteThings],
+              ].filter(([, value]) => value).map(([label, value]) => (
+                <p key={label} className="mt-3 text-sm leading-6 text-slate-600">
+                  <span className="font-bold text-slate-800">{label}:</span> {value}
+                </p>
+              ))}
+
+              {(selectedMember.instagram || selectedMember.website || selectedMember.otherLinks) && (
                 <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold">
-                  {selectedMember.instagram && (
+                  {safeSocialUrl(selectedMember.instagram) && (
                     <a
-                      href={selectedMember.instagram}
+                      href={safeSocialUrl(selectedMember.instagram)}
                       target="_blank"
                       rel="noreferrer"
                       className="text-violet-700 hover:text-pink-600"
@@ -319,9 +373,9 @@ export default function Members() {
                       Instagram
                     </a>
                   )}
-                  {selectedMember.website && (
+                  {safeSocialUrl(selectedMember.website) && (
                     <a
-                      href={selectedMember.website}
+                      href={safeSocialUrl(selectedMember.website)}
                       target="_blank"
                       rel="noreferrer"
                       className="text-violet-700 hover:text-pink-600"
@@ -329,6 +383,11 @@ export default function Members() {
                       Website
                     </a>
                   )}
+                  {otherSocialLinks(selectedMember.otherLinks).map((url, index) => (
+                    <a key={url} href={url} target="_blank" rel="noreferrer" className="text-violet-700 hover:text-pink-600">
+                      Social link {index + 1}
+                    </a>
+                  ))}
                 </div>
               )}
 

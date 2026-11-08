@@ -25,15 +25,37 @@ const memoryFields = [
 ];
 const memberFields = [
   "name",
+  "nickname",
   "role",
   "city",
   "bio",
+  "birthday",
+  "hobbies",
+  "interests",
+  "favoriteThings",
   "imageUrl",
+  "coverPhotoUrl",
   "joinedAt",
   "email",
   "instagram",
   "website",
+  "otherLinks",
   "isActive",
+];
+const memberProfileFields = [
+  "name",
+  "nickname",
+  "city",
+  "bio",
+  "birthday",
+  "hobbies",
+  "interests",
+  "favoriteThings",
+  "imageUrl",
+  "coverPhotoUrl",
+  "instagram",
+  "website",
+  "otherLinks",
 ];
 const wishFields = [
   "title",
@@ -114,6 +136,61 @@ function wishInput(body) {
     throw error;
   }
   return input;
+}
+
+function memberProfileInput(body) {
+  const input = recordInput(body, memberProfileFields);
+  if (typeof input.name !== "string" || !input.name.trim()) {
+    const error = new Error("Your name is required.");
+    error.status = 400;
+    throw error;
+  }
+  if (input.birthday) {
+    if (typeof input.birthday !== "string") {
+      const error = new Error("Choose a valid birthday.");
+      error.status = 400;
+      throw error;
+    }
+    const birthday = new Date(input.birthday);
+    if (Number.isNaN(birthday.getTime())) {
+      const error = new Error("Choose a valid birthday.");
+      error.status = 400;
+      throw error;
+    }
+    input.birthday = birthday;
+  } else {
+    input.birthday = null;
+  }
+  for (const field of ["instagram", "website"]) {
+    if (input[field] && !isHttpUrl(input[field])) {
+      const error = new Error(`Enter a valid ${field === "instagram" ? "Instagram" : "website"} URL.`);
+      error.status = 400;
+      throw error;
+    }
+  }
+  if (input.otherLinks && typeof input.otherLinks !== "string") {
+    const error = new Error("Other social links must be a list of HTTP or HTTPS URLs.");
+    error.status = 400;
+    throw error;
+  }
+  if (input.otherLinks) {
+    const links = input.otherLinks.split(/[\s,]+/).filter(Boolean);
+    if (links.some((link) => !isHttpUrl(link))) {
+      const error = new Error("Other social links must be valid HTTP or HTTPS URLs separated by spaces or commas.");
+      error.status = 400;
+      throw error;
+    }
+  }
+  return input;
+}
+
+function isHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 function awardInput(body) {
@@ -399,6 +476,47 @@ router.get("/members", async (req, res, next) => {
   } catch (error) {
     return next(error);
   }
+});
+
+router.get("/member/profile", requireVoter, async (req, res, next) => {
+  try {
+    const member = await Member.findOne({ _id: req.voterId, isActive: true })
+      .select("-email")
+      .lean();
+    if (!member) return res.status(404).json({ error: "Member profile not found." });
+    return res.json(member);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/member/profile", requireVoter, async (req, res, next) => {
+  try {
+    const member = await Member.findOneAndUpdate(
+      { _id: req.voterId, isActive: true },
+      memberProfileInput(req.body),
+      { new: true, runValidators: true }
+    )
+      .select("-email")
+      .lean();
+    if (!member) return res.status(404).json({ error: "Member profile not found." });
+    return res.json(member);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/member/profile/uploads", requireVoter, (req, res, next) => {
+  upload.single("image")(req, res, async (error) => {
+    if (error) return next(error);
+    if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
+    try {
+      const imageUrl = await uploadImageBuffer(req.file.buffer);
+      return res.status(201).json({ imageUrl });
+    } catch (uploadFailure) {
+      return next(uploadFailure);
+    }
+  });
 });
 
 router.get("/awards", async (req, res, next) => {

@@ -11,6 +11,7 @@ import Admin from "./pages/Admin";
 import BirthdayCalendar from "./pages/BirthdayCalendar";
 import FriendsAwards from "./pages/FriendsAwards";
 import PlayZone from "./pages/PlayZone";
+import MyProfile from "./pages/MyProfile";
 
 
 function NotFound() {
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/memories" element={<Memories />} />
             <Route path="/events" element={<Events />} />
             <Route path="/members" element={<Members />} />
+            <Route path="/my-profile" element={<MyProfile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/birthday-calendar" element={<BirthdayCalendar />} />
             <Route path="/awards" element={<FriendsAwards />} />

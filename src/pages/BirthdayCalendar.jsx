@@ -8,6 +8,8 @@ import {
   FaCalendarAlt,
   FaHeart,
 } from "react-icons/fa";
+import useApiData from "../hooks/useApiData";
+import { apiAssetUrl } from "../lib/api";
 
 const birthdays = [
   { id: 1, name: "Silpi Gorai", date: "2004-07-05", image: "https://scontent.cdninstagram.com/v/t51.82787-19/559794783_18056363219534883_6073348615481467044_n.jpg?_nc_cat=103&ig_cache_key=GF-KXSEjxKKrKiZAAKQg4kZj3khUbmNDAQAB0j-ccb7-5&ccb=7-5&_nc_sid=669407&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLnd3dy44MTAuQzMifQ%3D%3D&_nc_ohc=c1pXZBuEq9cQ7kNvwGGpV40&_nc_oc=AdpLi4F6TLYZ9-P6s1Jeio3Tw6p9Ff4PjmhmI8Cm6c5C-G0tEdR69WndcqPRvUvzNOs&_nc_zt=24&_nc_ht=scontent.cdninstagram.com&_nc_gid=RM1tpXHse0DZKSdnAwvOsg&_nc_ss=7b6a8&oh=00_AQPSA728Ft5KFs-lstGtA6cWKp9AozgvIoZAMACcEcd_Pw&oe=6AE3A81C" },
@@ -38,7 +40,23 @@ function getBirthdayDate(date) {
 }
 
 export default function BirthdayCalendar() {
-  const today = new Date();
+  const { data: members, loading: membersLoading, error: membersError } = useApiData("/members");
+  const displayedBirthdays = useMemo(() => {
+    const profileBirthdays = members
+      .filter((member) => member.birthday && !Number.isNaN(new Date(member.birthday).getTime()))
+      .map((member) => ({
+        id: member._id,
+        name: member.name,
+        date: new Date(member.birthday).toISOString().slice(0, 10),
+        image: apiAssetUrl(member.imageUrl),
+      }));
+    const updatedNames = new Set(profileBirthdays.map((person) => person.name.trim().toLowerCase()));
+    return [
+      ...birthdays.filter((person) => !updatedNames.has(person.name.trim().toLowerCase())),
+      ...profileBirthdays,
+    ];
+  }, [members]);
+  const [today] = useState(() => new Date());
   const [viewDate, setViewDate] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
@@ -48,20 +66,20 @@ export default function BirthdayCalendar() {
 
   const birthdayMap = useMemo(() => {
     const map = {};
-    birthdays.forEach((person) => {
+    displayedBirthdays.forEach((person) => {
       const { month: birthMonth, day } = getBirthdayDate(person.date);
       if (birthMonth === month) {
         map[day] = [...(map[day] || []), person];
       }
     });
     return map;
-  }, [month]);
+  }, [displayedBirthdays, month]);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
 
   const upcoming = useMemo(() => {
-    return birthdays
+    return displayedBirthdays
       .map((person) => {
         const { month: birthMonth, day } = getBirthdayDate(person.date);
         let next = new Date(year, birthMonth, day);
@@ -79,7 +97,7 @@ export default function BirthdayCalendar() {
         return { ...person, next, daysLeft };
       })
       .sort((a, b) => a.daysLeft - b.daysLeft);
-  }, [year]);
+  }, [displayedBirthdays, today, year]);
 
   function changeMonth(amount) {
     setViewDate(new Date(year, month + amount, 1));
@@ -112,7 +130,7 @@ export default function BirthdayCalendar() {
           <div className="rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
             <FaBirthdayCake className="text-2xl text-pink-500" />
             <p className="mt-3 text-sm text-slate-500">Listed birthdays</p>
-            <p className="text-3xl font-bold text-slate-900">{birthdays.length}</p>
+            <p className="text-3xl font-bold text-slate-900">{displayedBirthdays.length}</p>
           </div>
           <div className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
             <FaCalendarAlt className="text-2xl text-violet-500" />
@@ -133,6 +151,14 @@ export default function BirthdayCalendar() {
             </p>
           </div>
         </section>
+        {membersLoading && (
+          <p role="status" className="mb-5 text-sm text-slate-500">Loading member birthdays…</p>
+        )}
+        {membersError && (
+          <p role="status" className="mb-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+            Member profile birthdays could not be loaded: {membersError}
+          </p>
+        )}
 
         <div className="grid items-start gap-8 lg:grid-cols-[1.5fr_1fr]">
           {/* Calendar */}
@@ -222,7 +248,7 @@ export default function BirthdayCalendar() {
               <h3 className="mb-3 font-bold text-slate-900">
                 Birthdays in {monthNames[month]}
               </h3>
-              {birthdays.filter((person) => {
+              {displayedBirthdays.filter((person) => {
                 return getBirthdayDate(person.date).month === month;
               }).length === 0 ? (
                 <p className="text-sm text-slate-500">
@@ -230,7 +256,7 @@ export default function BirthdayCalendar() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {birthdays
+                  {displayedBirthdays
                     .filter((person) => getBirthdayDate(person.date).month === month)
                     .sort((a, b) => getBirthdayDate(a.date).day - getBirthdayDate(b.date).day)
                     .map((person) => (

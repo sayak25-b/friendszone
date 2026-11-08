@@ -8,6 +8,7 @@ const links = [
   { name: "Memory Lane", path: "/memories" },
   { name: "Events", path: "/events" },
   { name: "Members", path: "/members" },
+  { name: "My Profile", path: "/my-profile" },
   { name: "Play Zone", path: "/play-zone" },
   { name: "Birthday Calendar", path: "/birthday-calendar" },
   { name: "Awards", path: "/awards" }
@@ -58,7 +59,7 @@ export default function Navbar() {
           </span>
         </Link>
 
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-5 lg:flex">
           {links.map((link) => (
             <NavLink
               key={link.path}
@@ -83,14 +84,14 @@ export default function Navbar() {
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
-          className="rounded-xl p-2 text-slate-700 hover:bg-violet-50 md:hidden"
+          className="rounded-xl p-2 text-slate-700 hover:bg-violet-50 lg:hidden"
         >
           {menuOpen ? <X size={25} /> : <Menu size={25} />}
         </button>
       </nav>
 
       {menuOpen && (
-        <div className="border-t border-violet-100 bg-white px-5 py-5 md:hidden">
+        <div className="border-t border-violet-100 bg-white px-5 py-5 lg:hidden">
           <div className="flex flex-col gap-4">
             {links.map((link) => (
               <NavLink
