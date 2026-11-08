@@ -90,6 +90,50 @@ router.post("/voter/login", voterAuthLimiter, async (req, res, next) => {
   }
 });
 
+router.post("/voter/change-password", voterAuthLimiter, async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const currentPassword = typeof req.body?.currentPassword === "string" ? req.body.currentPassword : "";
+    const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+    if (!email || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Email, current password, and new password are required." });
+    }
+    if (!/^\d{4}$/.test(newPassword)) {
+      return res.status(400).json({ error: "Your new password must be exactly 4 digits." });
+    }
+
+    const account = await VoterAccount.findOne({ email }).select("+passwordHash");
+    if (!account || !(await bcrypt.compare(currentPassword, account.passwordHash))) {
+      return res.status(401).json({ error: "Email or current password is incorrect." });
+    }
+    if (account.passwordChangeCount >= 2) {
+      return res.status(403).json({ error: "You have used both password changes allowed for this account." });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const updatedAccount = await VoterAccount.findOneAndUpdate(
+      {
+        _id: account._id,
+        $or: [
+          { passwordChangeCount: { $lt: 2 } },
+          { passwordChangeCount: { $exists: false } },
+        ],
+      },
+      { $set: { passwordHash }, $inc: { passwordChangeCount: 1 } },
+      { new: true }
+    );
+    if (!updatedAccount) {
+      return res.status(403).json({ error: "You have used both password changes allowed for this account." });
+    }
+    return res.json({
+      message: "Password changed successfully.",
+      passwordChangesRemaining: Math.max(0, 2 - updatedAccount.passwordChangeCount),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get("/voter/me", requireVoter, async (req, res, next) => {
   try {
     const account = await VoterAccount.findOne({ member: req.voterId }).select("email member");

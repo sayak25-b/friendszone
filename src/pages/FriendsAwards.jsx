@@ -23,6 +23,8 @@ export default function FriendsAwards() {
   const [authMode, setAuthMode] = useState("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [activeAwardId, setActiveAwardId] = useState("");
   const [awards, setAwards] = useState([]);
@@ -100,11 +102,33 @@ export default function FriendsAwards() {
 
   async function submitAuth(event) {
     event.preventDefault();
+    if (authMode === "changePassword" && newPassword !== confirmNewPassword) {
+      setError("The new passwords do not match.");
+      return;
+    }
     setAuthSubmitting(true);
-    setVoteStatusLoading(true);
+    if (authMode !== "changePassword") setVoteStatusLoading(true);
     setError("");
     setNotice("");
     try {
+      if (authMode === "changePassword") {
+        await apiRequest("/auth/voter/change-password", {
+          method: "POST",
+          body: {
+            email: authEmail,
+            currentPassword: authPassword,
+            newPassword,
+          },
+        });
+        setAuthPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+        setAuthMode("login");
+        setAuthDialogOpen(false);
+        setNotice("Password changed. Sign in with your new password.");
+        return;
+      }
+
       const result = await apiRequest(`/auth/voter/${authMode}`, {
         method: "POST",
         body: { email: authEmail, password: authPassword },
@@ -113,6 +137,8 @@ export default function FriendsAwards() {
       setVoterToken(result.token);
       setVoter(result.voter);
       setAuthPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
       setAuthDialogOpen(false);
       setNotice(`Welcome, ${result.voter.name}. You’re ready to vote.`);
     } catch (authError) {
@@ -365,7 +391,11 @@ export default function FriendsAwards() {
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <h2 id="voter-auth-heading" className="text-2xl font-black text-slate-900">
-                    {authMode === "login" ? "Sign in to vote" : "Create your voter account"}
+                    {authMode === "login"
+                      ? "Sign in to vote"
+                      : authMode === "register"
+                        ? "Create your voter account"
+                        : "Change your password"}
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
                     Use the email address linked to your FriendsZone member profile.
@@ -383,21 +413,34 @@ export default function FriendsAwards() {
                   <X size={20} />
                 </button>
               </div>
-              <div className="mb-5 flex rounded-xl bg-violet-50 p-1">
-                {["login", "register"].map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => {
-                      setAuthMode(mode);
-                      setError("");
-                    }}
-                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold ${authMode === mode ? "bg-white text-violet-700 shadow-sm" : "text-slate-500"}`}
-                  >
-                    {mode === "login" ? "Sign in" : "Sign up"}
-                  </button>
-                ))}
-              </div>
+              {authMode === "changePassword" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setError("");
+                  }}
+                  className="mb-5 text-sm font-bold text-violet-700 hover:text-pink-600"
+                >
+                  Back to sign in
+                </button>
+              ) : (
+                <div className="mb-5 flex rounded-xl bg-violet-50 p-1">
+                  {["login", "register"].map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setAuthMode(mode);
+                        setError("");
+                      }}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold ${authMode === mode ? "bg-white text-violet-700 shadow-sm" : "text-slate-500"}`}
+                    >
+                      {mode === "login" ? "Sign in" : "Sign up"}
+                    </button>
+                  ))}
+                </div>
+              )}
               <form onSubmit={submitAuth} className="space-y-4">
                 <label className="block">
                   <span className="mb-2 block text-sm font-bold text-slate-700">Email</span>
@@ -412,10 +455,12 @@ export default function FriendsAwards() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-700">Password</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-700">
+                    {authMode === "changePassword" ? "Current password" : "Password"}
+                  </span>
                   <input
                     type="password"
-                    autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                    autoComplete={authMode === "register" ? "new-password" : "current-password"}
                     inputMode={authMode === "register" ? "numeric" : undefined}
                     pattern={authMode === "register" ? "[0-9]{4}" : undefined}
                     required
@@ -427,18 +472,73 @@ export default function FriendsAwards() {
                   />
                   {authMode === "register" && <span className="mt-2 block text-xs text-slate-500">Choose a 4-digit numeric password.</span>}
                 </label>
+                {authMode === "changePassword" && (
+                  <>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-slate-700">New password</span>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        inputMode="numeric"
+                        pattern="[0-9]{4}"
+                        minLength={4}
+                        maxLength={4}
+                        required
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        className="w-full rounded-xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-slate-700">Confirm new password</span>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        inputMode="numeric"
+                        pattern="[0-9]{4}"
+                        minLength={4}
+                        maxLength={4}
+                        required
+                        value={confirmNewPassword}
+                        onChange={(event) => setConfirmNewPassword(event.target.value)}
+                        className="w-full rounded-xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                      />
+                    </label>
+                    <p className="text-xs leading-5 text-slate-500">
+                      You can change your password up to two times.
+                    </p>
+                  </>
+                )}
                 {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
                 <button
                   type="submit"
                   disabled={authSubmitting}
                   className="w-full rounded-xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60"
                 >
-                  {authSubmitting ? "Please wait…" : authMode === "login" ? "Sign in and continue" : "Create account and continue"}
+                  {authSubmitting
+                    ? "Please wait…"
+                    : authMode === "login"
+                      ? "Sign in and continue"
+                      : authMode === "register"
+                        ? "Create account and continue"
+                        : "Change password"}
                 </button>
                 {authMode === "register" && (
                   <p className="text-xs leading-5 text-slate-500">
                     Your account is linked to the active member profile that already uses this email.
                   </p>
+                )}
+                {authMode === "login" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("changePassword");
+                      setError("");
+                    }}
+                    className="w-full text-sm font-bold text-violet-700 hover:text-pink-600"
+                  >
+                    Change password
+                  </button>
                 )}
               </form>
             </section>

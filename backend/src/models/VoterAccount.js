@@ -11,6 +11,7 @@ const voterAccountSchema = new mongoose.Schema(
       maxlength: 254,
     },
     passwordHash: { type: String, required: true, select: false },
+    passwordChangeCount: { type: Number, default: 0, min: 0 },
     member: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Member",
