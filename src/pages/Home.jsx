@@ -13,8 +13,52 @@ import {
   Gamepad2,
 } from "lucide-react";
 import useApiData from "../hooks/useApiData";
-import { apiAssetUrl } from "../lib/api";
+import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
+import WishBanner from "../components/WishBanner";
+
+function ActiveWishBanner() {
+  const [wishes, setWishes] = useState([]);
+  const [error, setError] = useState("");
+  const [dismissedId, setDismissedId] = useState(
+    () => window.sessionStorage.getItem("friendszone-dismissed-wish") || ""
+  );
+  const wish = wishes[0];
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function refreshWish() {
+      try {
+        setWishes(await apiRequest("/wishes/active", { signal: controller.signal }));
+        setError("");
+      } catch (loadError) {
+        if (!controller.signal.aborted) setError(loadError.message);
+      }
+    }
+
+    refreshWish();
+    const timer = window.setInterval(refreshWish, 60000);
+    return () => {
+      window.clearInterval(timer);
+      controller.abort();
+    };
+  }, []);
+
+  function dismiss() {
+    window.sessionStorage.setItem("friendszone-dismissed-wish", wish._id);
+    setDismissedId(wish._id);
+  }
+
+  if (!wish || dismissedId === wish._id) {
+    return error ? (
+      <p role="status" className="bg-violet-50 px-5 py-2 text-center text-xs text-slate-600">
+        The occasion greeting could not be loaded: {error}
+      </p>
+    ) : null;
+  }
+
+  return <WishBanner wish={wish} onClose={dismiss} />;
+}
 
 function MemoryCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -165,6 +209,7 @@ function MemoryCarousel() {
 export default function Home() {
   return (
     <main>
+      <ActiveWishBanner />
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-violet-50 via-white to-pink-50">
         <div className="home-fireworks pointer-events-none absolute inset-0" aria-hidden="true">
           <span className="home-firework home-firework-one" />

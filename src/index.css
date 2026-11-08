@@ -45,6 +45,57 @@ img {
   color: #4c1d95;
 }
 
+.wish-banner {
+  background-position: center;
+  background-size: cover;
+}
+
+.wish-banner-sparkle {
+  position: absolute;
+  z-index: 1;
+  color: var(--wish-accent);
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 0 18px var(--wish-accent);
+  animation: wish-sparkle 3.2s ease-in-out infinite;
+}
+
+.wish-banner-sparkle-one {
+  top: 18%;
+  left: 12%;
+}
+
+.wish-banner-sparkle-two {
+  right: 15%;
+  bottom: 18%;
+  animation-delay: 1.1s;
+}
+
+.wish-banner-sparkle-three {
+  top: 22%;
+  right: 28%;
+  animation-delay: 2.1s;
+}
+
+@keyframes wish-sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.5) rotate(0deg);
+  }
+  45%, 65% {
+    opacity: 0.9;
+    transform: scale(1.2) rotate(25deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wish-banner-sparkle {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 .home-fireworks {
   z-index: 1;
   overflow: hidden;

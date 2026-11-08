@@ -8,6 +8,7 @@ import Award from "../models/Award.js";
 import AwardVote from "../models/AwardVote.js";
 import Memory from "../models/Memory.js";
 import Member from "../models/Member.js";
+import Wish from "../models/Wish.js";
 import { requireAdmin, requireVoter } from "../middleware/auth.js";
 
 const router = Router();
@@ -34,6 +35,17 @@ const memberFields = [
   "website",
   "isActive",
 ];
+const wishFields = [
+  "title",
+  "message",
+  "imageUrl",
+  "theme",
+  "backgroundColor",
+  "accentColor",
+  "publishAt",
+  "expiresAt",
+  "isActive",
+];
 const allowedImageTypes = new Map([
   ["image/jpeg", ".jpg"],
   ["image/png", ".png"],
@@ -56,6 +68,52 @@ function recordInput(body, fields) {
   return Object.fromEntries(
     fields.filter((field) => Object.hasOwn(body, field)).map((field) => [field, body[field]])
   );
+}
+
+function wishInput(body) {
+  const input = recordInput(body, wishFields);
+  if (typeof input.title !== "string" || !input.title.trim()) {
+    const error = new Error("Occasion title is required.");
+    error.status = 400;
+    throw error;
+  }
+  if (typeof input.message !== "string" || !input.message.trim()) {
+    const error = new Error("Greeting message is required.");
+    error.status = 400;
+    throw error;
+  }
+  if (!["celebration", "elegant", "playful", "festive"].includes(input.theme)) {
+    const error = new Error("Choose a valid festive theme.");
+    error.status = 400;
+    throw error;
+  }
+  for (const field of ["backgroundColor", "accentColor"]) {
+    if (typeof input[field] !== "string" || !/^#[0-9a-fA-F]{6}$/.test(input[field])) {
+      const error = new Error("Choose valid theme colors.");
+      error.status = 400;
+      throw error;
+    }
+  }
+  for (const field of ["publishAt", "expiresAt"]) {
+    const date = new Date(input[field]);
+    if (!input[field] || Number.isNaN(date.getTime())) {
+      const error = new Error(`Choose a valid ${field === "publishAt" ? "publication" : "expiry"} date and time.`);
+      error.status = 400;
+      throw error;
+    }
+    input[field] = date;
+  }
+  if (input.expiresAt <= input.publishAt) {
+    const error = new Error("The expiry date must be after the publication date.");
+    error.status = 400;
+    throw error;
+  }
+  if (input.isActive !== undefined && typeof input.isActive !== "boolean") {
+    const error = new Error("Active status must be true or false.");
+    error.status = 400;
+    throw error;
+  }
+  return input;
 }
 
 function awardInput(body) {
@@ -200,6 +258,23 @@ router.get("/memories", async (req, res, next) => {
         : false,
       likes: undefined,
     })));
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/wishes/active", async (req, res, next) => {
+  try {
+    const now = new Date();
+    const wish = await Wish.findOne({
+      isActive: true,
+      publishAt: { $lte: now },
+      expiresAt: { $gt: now },
+    })
+      .sort({ publishAt: -1, createdAt: -1 })
+      .lean();
+    res.set("Cache-Control", "no-store");
+    return res.json(wish ? [wish] : []);
   } catch (error) {
     return next(error);
   }
@@ -557,6 +632,54 @@ router.get("/media/:id", async (req, res, next) => {
 });
 
 router.use("/admin", requireAdmin);
+
+router.get("/admin/wishes", async (req, res, next) => {
+  try {
+    const wishes = await Wish.find().sort({ publishAt: -1, createdAt: -1 }).lean();
+    return res.json(wishes);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/admin/wishes", async (req, res, next) => {
+  try {
+    const wish = await Wish.create(wishInput(req.body));
+    return res.status(201).json(wish);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/admin/wishes/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Wish not found." });
+    }
+    const wish = await Wish.findByIdAndUpdate(
+      req.params.id,
+      wishInput(req.body),
+      { new: true, runValidators: true, overwrite: true }
+    );
+    if (!wish) return res.status(404).json({ error: "Wish not found." });
+    return res.json(wish);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/admin/wishes/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Wish not found." });
+    }
+    const wish = await Wish.findByIdAndDelete(req.params.id);
+    if (!wish) return res.status(404).json({ error: "Wish not found." });
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get("/admin/memory-lane", async (req, res, next) => {
   try {
