@@ -21,7 +21,6 @@ const emptyProfile = {
   interests: "",
   favoriteThings: "",
   imageUrl: "",
-  coverPhotoUrl: "",
   instagram: "",
   website: "",
   otherLinks: "",
@@ -235,27 +234,22 @@ export default function MyProfile() {
           <form onSubmit={saveProfile} className="mt-8 space-y-7">
             <section className="rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
               <h2 className="text-xl font-black text-slate-900">Profile photos</h2>
-              <p className="mt-1 text-sm text-slate-500">Upload JPG, PNG, WebP or GIF images up to 5 MB.</p>
+              <p className="mt-1 text-sm text-slate-500">Upload a profile picture (JPG, PNG, WebP or GIF up to 5 MB).</p>
               <div className="mt-5 grid gap-6 sm:grid-cols-2">
-                {[
-                  { field: "imageUrl", label: "Profile picture" },
-                  { field: "coverPhotoUrl", label: "Cover photo" },
-                ].map(({ field, label }) => (
-                  <div key={field}>
-                    <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
-                    {form[field] ? (
-                      <img src={apiAssetUrl(form[field])} alt={`${label} preview`} className={`${field === "coverPhotoUrl" ? "h-36 w-full" : "h-36 w-36"} rounded-2xl border border-violet-100 bg-violet-50 object-cover`} />
-                    ) : (
-                      <div className={`${field === "coverPhotoUrl" ? "h-36 w-full" : "h-36 w-36"} flex items-center justify-center rounded-2xl bg-violet-50 text-violet-400`}>
-                        <Camera size={28} />
-                      </div>
-                    )}
-                    <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-violet-200 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-50">
-                      <Camera size={16} /> {uploading === field ? "Uploading…" : `Upload ${label.toLowerCase()}`}
-                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => uploadPhoto(field, event)} disabled={Boolean(uploading)} className="sr-only" />
-                    </label>
-                  </div>
-                ))}
+                <div>
+                  <p className="mb-2 text-sm font-bold text-slate-700">Profile picture</p>
+                  {form.imageUrl ? (
+                    <img src={apiAssetUrl(form.imageUrl)} alt="Profile picture preview" className="h-36 w-36 rounded-2xl border border-violet-100 bg-violet-50 object-cover" />
+                  ) : (
+                    <div className="flex h-36 w-36 items-center justify-center rounded-2xl bg-violet-50 text-violet-400">
+                      <Camera size={28} />
+                    </div>
+                  )}
+                  <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-violet-200 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-50">
+                    <Camera size={16} /> {uploading === "imageUrl" ? "Uploading…" : "Upload profile picture"}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => uploadPhoto("imageUrl", event)} disabled={Boolean(uploading)} className="sr-only" />
+                  </label>
+                </div>
               </div>
             </section>
 

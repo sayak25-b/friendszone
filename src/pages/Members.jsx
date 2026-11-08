@@ -192,17 +192,10 @@ export default function Members() {
               >
   <div className="relative m-3 mb-0 h-64 overflow-hidden rounded-[1.3rem] bg-gradient-to-br from-violet-100 to-pink-100">
   <img
-    src={apiAssetUrl(member.coverPhotoUrl || member.imageUrl)}
-    alt=""
-    aria-hidden="true"
-    loading="lazy"
-    className="h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
-  />
-  <img
     src={apiAssetUrl(member.imageUrl)}
     alt={member.name}
     loading="lazy"
-    className="absolute bottom-3 left-3 h-16 w-16 rounded-full border-4 border-white object-cover shadow-lg"
+    className="h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
   />
 
 
@@ -297,21 +290,15 @@ export default function Members() {
               <X size={20} />
             </button>
 
-            <div className="relative h-64 bg-violet-100">
-              <img
-                src={apiAssetUrl(selectedMember.coverPhotoUrl || selectedMember.imageUrl)}
-                alt=""
-                aria-hidden="true"
-                className="h-full w-full object-cover"
-              />
+            <div className="h-64 overflow-hidden bg-violet-100">
               <img
                 src={apiAssetUrl(selectedMember.imageUrl)}
                 alt={selectedMember.name}
-                className="absolute bottom-0 left-7 h-20 w-20 translate-y-1/2 rounded-2xl border-4 border-white object-cover shadow-lg"
+                className="h-full w-full object-cover"
               />
             </div>
 
-            <div className="p-7 pt-10">
+            <div className="p-7">
               <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-violet-600">
                 Part of our circle
               </p>

@@ -18,7 +18,6 @@ const memberSchema = new mongoose.Schema(
     favoriteThings: { type: String, trim: true, maxlength: 1000, default: "" },
 
     imageUrl: { type: String, required: true, trim: true, maxlength: 2048 },
-    coverPhotoUrl: { type: String, trim: true, maxlength: 2048, default: "" },
     joinedAt: { type: Date, default: Date.now },
     email: {
       type: String,
