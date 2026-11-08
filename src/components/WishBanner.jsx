@@ -19,7 +19,7 @@ export default function WishBanner({ wish, onClose, preview = false }) {
         "--wish-accent": wish.accentColor || "#ec4899",
         backgroundColor: wish.backgroundColor || "#6d28d9",
         backgroundImage: imageUrl
-          ? `linear-gradient(90deg, color-mix(in srgb, ${wish.backgroundColor || "#6d28d9"} 88%, black), color-mix(in srgb, ${wish.backgroundColor || "#6d28d9"} 56%, transparent)), url("${imageUrl}")`
+          ? `url("${imageUrl}")`
           : undefined,
       }}
       aria-label={`${wish.title}: ${wish.message}`}
