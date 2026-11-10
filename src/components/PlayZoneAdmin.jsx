@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Check, Clock3, Eye, EyeOff, Pencil, Plus, Shield, Trash2, X } from "lucide-react";
-import { apiRequest } from "../lib/api";
+import { apiAssetUrl, apiRequest } from "../lib/api";
 
 function localDateString(date = new Date()) {
   const year = date.getFullYear();
@@ -15,6 +15,19 @@ function tomorrowString() {
   return localDateString(tomorrow);
 }
 
+function emptyPuzzle() {
+  return {
+    title: "",
+    description: "",
+    imageUrl: "",
+    size: 3,
+    scheduleType: "daily",
+    scheduleDate: localDateString(),
+    weeklyDay: new Date().getDay(),
+    timeLimitSeconds: 180,
+  };
+}
+
 function formatDate(value) {
   return new Date(`${value}T12:00:00`).toLocaleDateString("en-IN", {
     day: "numeric",
@@ -24,7 +37,7 @@ function formatDate(value) {
 }
 
 export default function PlayZoneAdmin({ token }) {
-  const [data, setData] = useState({ prompts: [], truths: [], trivia: [] });
+  const [data, setData] = useState({ prompts: [], truths: [], trivia: [], puzzles: [], puzzleScores: [] });
   const [prompt, setPrompt] = useState("");
   const [promptGame, setPromptGame] = useState("trivia");
   const [question, setQuestion] = useState("");
@@ -32,6 +45,9 @@ export default function PlayZoneAdmin({ token }) {
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctIndex, setCorrectIndex] = useState(0);
   const [editingTriviaId, setEditingTriviaId] = useState("");
+  const [puzzleForm, setPuzzleForm] = useState(emptyPuzzle);
+  const [editingPuzzleId, setEditingPuzzleId] = useState("");
+  const [uploadingPuzzleImage, setUploadingPuzzleImage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -108,6 +124,91 @@ export default function PlayZoneAdmin({ token }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function uploadPuzzleImage(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      setError("Choose a JPEG, PNG, WebP, or GIF image.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("The image must be 5 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+    setUploadingPuzzleImage(true);
+    setError("");
+    setNotice("");
+    try {
+      const body = new FormData();
+      body.append("image", file);
+      const result = await apiRequest("/admin/uploads", { method: "POST", token, body });
+      setPuzzleForm((current) => ({ ...current, imageUrl: result.imageUrl }));
+      setNotice("Puzzle image uploaded. Save the puzzle to publish it.");
+    } catch (uploadError) {
+      setError(uploadError.message);
+    } finally {
+      setUploadingPuzzleImage(false);
+      event.target.value = "";
+    }
+  }
+
+  async function savePuzzle(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await apiRequest(
+        editingPuzzleId
+          ? `/play-zone/admin/puzzles/${editingPuzzleId}`
+          : "/play-zone/admin/puzzles",
+        {
+          method: editingPuzzleId ? "PUT" : "POST",
+          token,
+          body: {
+            ...puzzleForm,
+            size: Number(puzzleForm.size),
+            weeklyDay: Number(puzzleForm.weeklyDay),
+            timeLimitSeconds: Number(puzzleForm.timeLimitSeconds),
+          },
+        }
+      );
+      setPuzzleForm(emptyPuzzle());
+      setEditingPuzzleId("");
+      setNotice(editingPuzzleId ? "Puzzle updated." : "Puzzle scheduled.");
+      await refresh();
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function editPuzzle(puzzle) {
+    setEditingPuzzleId(puzzle._id);
+    setPuzzleForm({
+      title: puzzle.title,
+      description: puzzle.description || "",
+      imageUrl: puzzle.imageUrl,
+      size: puzzle.size,
+      scheduleType: puzzle.scheduleType,
+      scheduleDate: puzzle.scheduleDate,
+      weeklyDay: puzzle.weeklyDay ?? 0,
+      timeLimitSeconds: puzzle.timeLimitSeconds,
+    });
+    setError("");
+    setNotice("");
+  }
+
+  function cancelPuzzleEdit() {
+    setEditingPuzzleId("");
+    setPuzzleForm(emptyPuzzle());
+    setError("");
+    setNotice("");
   }
 
   function editTrivia(item) {
@@ -244,6 +345,123 @@ export default function PlayZoneAdmin({ token }) {
           </form>
         </section>
       </div>
+
+      <section className={sectionClass}>
+        <h3 className="text-lg font-black text-slate-900">
+          {editingPuzzleId ? "Edit picture puzzle" : "Schedule a picture puzzle"}
+        </h3>
+        <p className="mt-1 text-sm leading-6 text-slate-500">
+          Upload a group photo, choose the board size and time limit, then schedule a daily or weekly challenge.
+        </p>
+        <form onSubmit={savePuzzle} className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Puzzle title</span>
+            <input required maxLength={120} value={puzzleForm.title} onChange={(event) => setPuzzleForm((current) => ({ ...current, title: event.target.value }))} className={inputClass} />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Difficulty</span>
+            <select value={puzzleForm.size} onChange={(event) => setPuzzleForm((current) => ({ ...current, size: event.target.value }))} className={inputClass}>
+              <option value={3}>3 × 3 · Easy</option>
+              <option value={4}>4 × 4 · Medium</option>
+              <option value={5}>5 × 5 · Hard</option>
+            </select>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Description</span>
+            <textarea maxLength={500} rows={2} value={puzzleForm.description} onChange={(event) => setPuzzleForm((current) => ({ ...current, description: event.target.value }))} className={inputClass} />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Schedule</span>
+            <select value={puzzleForm.scheduleType} onChange={(event) => setPuzzleForm((current) => ({ ...current, scheduleType: event.target.value }))} className={inputClass}>
+              <option value="daily">Daily challenge</option>
+              <option value="weekly">Weekly challenge</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Starts on</span>
+            <input required type="date" value={puzzleForm.scheduleDate} onChange={(event) => setPuzzleForm((current) => ({ ...current, scheduleDate: event.target.value }))} className={inputClass} />
+          </label>
+          {puzzleForm.scheduleType === "weekly" && (
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold text-slate-700">Weekly challenge day</span>
+              <select value={puzzleForm.weeklyDay} onChange={(event) => setPuzzleForm((current) => ({ ...current, weeklyDay: event.target.value }))} className={inputClass}>
+                {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => (
+                  <option key={day} value={index}>{day}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Time limit · seconds (30–3600)</span>
+            <input required type="number" min={30} max={3600} value={puzzleForm.timeLimitSeconds} onChange={(event) => setPuzzleForm((current) => ({ ...current, timeLimitSeconds: event.target.value }))} className={inputClass} />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Upload picture · max 5 MB</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={uploadPuzzleImage} disabled={uploadingPuzzleImage} className={`${inputClass} file:mr-3 file:rounded-full file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-bold file:text-violet-700`} />
+            {uploadingPuzzleImage && <span className="mt-2 block text-xs text-violet-600">Uploading picture…</span>}
+          </label>
+          {puzzleForm.imageUrl && (
+            <div className="flex items-center gap-3 md:col-span-2">
+              <img src={apiAssetUrl(puzzleForm.imageUrl)} alt="Puzzle preview" className="h-20 w-28 rounded-xl border border-violet-100 object-cover" />
+              <button type="button" onClick={() => setPuzzleForm((current) => ({ ...current, imageUrl: "" }))} className="text-sm font-bold text-red-600 hover:text-red-700">Remove picture</button>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3 md:col-span-2">
+            <button type="submit" disabled={saving || uploadingPuzzleImage || !puzzleForm.imageUrl} className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-5 py-3 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-60">
+              {editingPuzzleId ? <Check size={16} /> : <CalendarDays size={16} />}
+              {editingPuzzleId ? "Save puzzle" : "Schedule puzzle"}
+            </button>
+            {editingPuzzleId && <button type="button" onClick={cancelPuzzleEdit} disabled={saving} className="inline-flex items-center gap-2 rounded-full border border-violet-200 px-5 py-3 text-sm font-bold text-violet-700 hover:bg-violet-50"><X size={16} /> Cancel</button>}
+          </div>
+        </form>
+
+        <div className="mt-7 border-t border-slate-100 pt-5">
+          <h4 className="text-sm font-extrabold text-slate-700">Scheduled picture puzzles</h4>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {data.puzzles.map((puzzle) => (
+              <article key={puzzle._id} className="flex gap-3 rounded-2xl border border-slate-100 p-3">
+                <img src={apiAssetUrl(puzzle.imageUrl)} alt="" className="h-20 w-24 shrink-0 rounded-xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-slate-900">{puzzle.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {puzzle.size} × {puzzle.size} · {puzzle.scheduleType === "daily" ? "Daily" : `Every ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][puzzle.weeklyDay]}`} · starts {formatDate(puzzle.scheduleDate)} · {puzzle.timeLimitSeconds}s
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={() => editPuzzle(puzzle)} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-800"><Pencil size={13} /> Edit</button>
+                    <button type="button" onClick={() => performAction(`/play-zone/admin/puzzles/${puzzle._id}`, "DELETE", undefined, "Puzzle and its scores removed.")} className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700"><Trash2 size={13} /> Remove</button>
+                  </div>
+                </div>
+              </article>
+            ))}
+            {!data.puzzles.length && <p className="text-sm text-slate-400">No picture puzzles scheduled.</p>}
+          </div>
+        </div>
+      </section>
+
+      <section className={sectionClass}>
+        <h3 className="text-lg font-black text-slate-900">Picture puzzle scores</h3>
+        <p className="mt-1 text-sm text-slate-500">Members’ completion times and points across scheduled puzzles.</p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+              <tr><th className="py-2 pr-4">Member</th><th className="py-2 pr-4">Puzzle</th><th className="py-2 pr-4">Date</th><th className="py-2 pr-4">Time</th><th className="py-2 pr-4">Moves</th><th className="py-2">Points</th></tr>
+            </thead>
+            <tbody>
+              {data.puzzleScores.map((score) => (
+                <tr key={score._id} className="border-b border-slate-50 text-slate-700">
+                  <td className="py-3 pr-4 font-semibold">{score.member?.name || "Former member"}</td>
+                  <td className="py-3 pr-4">{score.puzzle?.title || "Removed puzzle"}</td>
+                  <td className="py-3 pr-4">{formatDate(score.challengeDate)}</td>
+                  <td className="py-3 pr-4">{score.timeSeconds}s</td>
+                  <td className="py-3 pr-4">{score.moves}</td>
+                  <td className="py-3 font-black text-violet-700">{score.points}</td>
+                </tr>
+              ))}
+              {!data.puzzleScores.length && <tr><td colSpan={6} className="py-4 text-slate-400">No puzzle scores yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className={sectionClass}>
         <div className="flex items-center gap-3">

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../lib/api";
+import PicturePuzzle from "./PicturePuzzle";
 
 const MEMBER_KEY = "friendszone-play-zone-member";
 
@@ -237,6 +238,8 @@ export default function PlayZone() {
             Add active members before starting the games.
           </p>
         )}
+
+        <PicturePuzzle memberId={memberId} />
 
         {loading ? (
           <div className="rounded-3xl border border-violet-100 bg-white p-8 text-center text-sm text-slate-500">

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Member from "../models/Member.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { DailyTrivia, GamePrompt, TruthRound } from "../models/PlayZone.js";
+import { Puzzle, PuzzleScore } from "../models/Puzzle.js";
 
 const router = Router();
 
@@ -15,6 +16,16 @@ function todayKey() {
   }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+async function findScheduledPuzzle(date) {
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const scheduled = await Puzzle.find({ scheduleDate: { $lte: date } })
+    .sort({ scheduleDate: -1, createdAt: -1 })
+    .lean();
+  return scheduled.find(
+    (item) => item.scheduleType === "daily" || item.weeklyDay === weekday
+  ) || null;
 }
 
 function badRequest(message) {
@@ -57,6 +68,49 @@ function triviaInput(body) {
   };
 }
 
+function puzzleInput(body) {
+  const { title, description = "", imageUrl, size, scheduleType, scheduleDate, weeklyDay, timeLimitSeconds } = body || {};
+  if (typeof title !== "string" || !title.trim() || title.trim().length > 120) {
+    throw badRequest("Enter a puzzle title no longer than 120 characters.");
+  }
+  if (typeof description !== "string" || description.length > 500) {
+    throw badRequest("Enter a description no longer than 500 characters.");
+  }
+  if (typeof imageUrl !== "string" || !imageUrl.trim() || imageUrl.length > 2048) {
+    throw badRequest("Choose an image for this puzzle.");
+  }
+  if (![3, 4, 5].includes(size)) throw badRequest("Choose a 3×3, 4×4, or 5×5 difficulty.");
+  if (!["daily", "weekly"].includes(scheduleType)) {
+    throw badRequest("Choose a daily or weekly schedule.");
+  }
+  if (typeof scheduleDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(scheduleDate)) {
+    throw badRequest("Choose a valid schedule start date.");
+  }
+  const parsedDate = new Date(`${scheduleDate}T00:00:00Z`);
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== scheduleDate) {
+    throw badRequest("Choose a valid schedule start date.");
+  }
+  if (
+    scheduleType === "weekly" &&
+    (!Number.isInteger(weeklyDay) || weeklyDay < 0 || weeklyDay > 6)
+  ) {
+    throw badRequest("Choose a weekday for the weekly puzzle.");
+  }
+  if (!Number.isInteger(timeLimitSeconds) || timeLimitSeconds < 30 || timeLimitSeconds > 3600) {
+    throw badRequest("Set a time limit between 30 seconds and 60 minutes.");
+  }
+  return {
+    title: title.trim(),
+    description: description.trim(),
+    imageUrl: imageUrl.trim(),
+    size,
+    scheduleType,
+    scheduleDate,
+    weeklyDay: scheduleType === "weekly" ? weeklyDay : null,
+    timeLimitSeconds,
+  };
+}
+
 async function findActiveMember(memberId) {
   if (!mongoose.isValidObjectId(memberId)) {
     throw badRequest("Choose a valid member profile.");
@@ -89,14 +143,58 @@ router.use("/admin", requireAdmin);
 
 router.get("/admin", async (req, res, next) => {
   try {
-    const [prompts, truths, trivia] = await Promise.all([
+    const [prompts, truths, trivia, puzzles, puzzleScores] = await Promise.all([
       GamePrompt.find().sort({ game: 1, createdAt: -1 }).lean(),
       TruthRound.find().populate({ path: "author", select: "name" })
         .sort({ date: -1, createdAt: -1 }).limit(100).lean(),
       DailyTrivia.find().populate({ path: "author", select: "name" })
         .sort({ date: -1 }).limit(100).lean(),
+      Puzzle.find().sort({ scheduleDate: -1, createdAt: -1 }).lean(),
+      PuzzleScore.find().populate({ path: "member", select: "name" })
+        .populate({ path: "puzzle", select: "title" })
+        .sort({ points: -1, timeSeconds: 1 }).limit(500).lean(),
     ]);
-    return res.json({ prompts, truths, trivia });
+    return res.json({ prompts, truths, trivia, puzzles, puzzleScores });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/admin/puzzles", async (req, res, next) => {
+  try {
+    const puzzle = await Puzzle.create(puzzleInput(req.body));
+    return res.status(201).json(puzzle);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/admin/puzzles/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Puzzle not found." });
+    }
+    const puzzle = await Puzzle.findByIdAndUpdate(
+      req.params.id,
+      { $set: puzzleInput(req.body) },
+      { new: true, runValidators: true }
+    );
+    if (!puzzle) return res.status(404).json({ error: "Puzzle not found." });
+    return res.json(puzzle);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/admin/puzzles/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Puzzle not found." });
+    }
+    const puzzle = await Puzzle.findByIdAndDelete(req.params.id);
+    if (!puzzle) return res.status(404).json({ error: "Puzzle not found." });
+    await PuzzleScore.deleteMany({ puzzle: puzzle._id });
+    return res.status(204).end();
   } catch (error) {
     return next(error);
   }
@@ -341,6 +439,93 @@ router.get("/", async (req, res, next) => {
       leaderboard,
     });
   } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/puzzle", async (req, res, next) => {
+  try {
+    const date = todayKey();
+    const puzzle = await findScheduledPuzzle(date);
+    if (!puzzle) return res.json({ puzzle: null, completed: false, leaderboard: [], badges: [] });
+
+    const scores = await PuzzleScore.find({ puzzle: puzzle._id, challengeDate: date })
+      .populate({ path: "member", select: "name" })
+      .sort({ timeSeconds: 1, moves: 1, createdAt: 1 })
+      .limit(10)
+      .lean();
+    const memberId = req.query.memberId;
+    const ownScore = memberId && mongoose.isValidObjectId(memberId)
+      ? await PuzzleScore.findOne({ puzzle: puzzle._id, member: memberId, challengeDate: date }).lean()
+      : null;
+    const completedCount = memberId && mongoose.isValidObjectId(memberId)
+      ? await PuzzleScore.countDocuments({ member: memberId })
+      : 0;
+    const badges = [];
+    if (completedCount >= 1) badges.push("First Finish");
+    if (completedCount >= 5) badges.push("Puzzle Pro");
+    if (completedCount >= 10) badges.push("Puzzle Champion");
+    return res.json({
+      puzzle,
+      challengeDate: date,
+      completed: Boolean(ownScore),
+      ownScore,
+      leaderboard: scores.map((score) => ({
+        memberId: String(score.member?._id || ""),
+        name: score.member?.name || "Former member",
+        timeSeconds: score.timeSeconds,
+        moves: score.moves,
+        points: score.points,
+      })),
+      badges,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/puzzle/complete", async (req, res, next) => {
+  try {
+    const { memberId, puzzleId, challengeDate, timeSeconds, moves, hintsUsed } = req.body || {};
+    const member = await findActiveMember(memberId);
+    if (!mongoose.isValidObjectId(puzzleId)) throw badRequest("The puzzle was not found.");
+    if (!Number.isInteger(timeSeconds) || timeSeconds < 1) {
+      throw badRequest("A valid completion time is required.");
+    }
+    if (!Number.isInteger(moves) || moves < 1 || moves > 100000) {
+      throw badRequest("A valid move count is required.");
+    }
+    if (!Number.isInteger(hintsUsed) || hintsUsed < 0 || hintsUsed > 100) {
+      throw badRequest("A valid hint count is required.");
+    }
+    const puzzle = await Puzzle.findById(puzzleId).lean();
+    if (!puzzle) return res.status(404).json({ error: "Puzzle not found." });
+    const date = todayKey();
+    const scheduledPuzzle = await findScheduledPuzzle(date);
+    if (challengeDate !== date || !scheduledPuzzle || String(scheduledPuzzle._id) !== String(puzzle._id)) {
+      return res.status(409).json({ error: "This puzzle is no longer today's active challenge." });
+    }
+    if (timeSeconds > puzzle.timeLimitSeconds) {
+      throw badRequest("The puzzle time limit has expired.");
+    }
+    const points = Math.max(10, puzzle.size * 100 - hintsUsed * 10);
+    const score = await PuzzleScore.create({
+      puzzle: puzzle._id,
+      member: member._id,
+      challengeDate: date,
+      timeSeconds,
+      moves,
+      hintsUsed,
+      points,
+    });
+    return res.status(201).json({
+      message: `Puzzle complete! You earned ${points} points.`,
+      score,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "You have already completed this puzzle." });
+    }
     return next(error);
   }
 });

@@ -350,7 +350,7 @@ export default function Home() {
           {
             icon: <Gamepad2 size={24} />,
             title: "Play Zone",
-            description: "Guess the lies, play daily trivia, and climb the leaderboard.",
+            description: "Solve today's picture puzzle, play trivia, and climb the leaderboard.",
             link: "/play-zone",
           },
           {
