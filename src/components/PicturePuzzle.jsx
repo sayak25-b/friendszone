@@ -11,27 +11,13 @@ import {
 import { apiAssetUrl, apiRequest } from "../lib/api";
 
 function shuffledBoard(size) {
-  let tiles;
+  let tiles = Array.from({ length: size * size }, (_, index) => index + 1);
   do {
-    tiles = Array.from({ length: size * size }, (_, index) => (index + 1) % (size * size));
-    let emptyIndex = tiles.length - 1;
-    let previousEmptyIndex = -1;
-
-    for (let move = 0; move < size * size * 24; move += 1) {
-      const neighbors = [
-        emptyIndex - size,
-        emptyIndex + size,
-        ...(emptyIndex % size ? [emptyIndex - 1] : []),
-        ...(emptyIndex % size < size - 1 ? [emptyIndex + 1] : []),
-      ].filter(
-        (index) => index >= 0 && index < tiles.length && index !== previousEmptyIndex
-      );
-      const nextIndex = neighbors[Math.floor(Math.random() * neighbors.length)];
-      [tiles[emptyIndex], tiles[nextIndex]] = [tiles[nextIndex], tiles[emptyIndex]];
-      previousEmptyIndex = emptyIndex;
-      emptyIndex = nextIndex;
+    for (let index = tiles.length - 1; index > 0; index -= 1) {
+      const nextIndex = Math.floor(Math.random() * (index + 1));
+      [tiles[index], tiles[nextIndex]] = [tiles[nextIndex], tiles[index]];
     }
-  } while (tiles.every((tile, index) => tile === (index + 1) % tiles.length));
+  } while (tiles.every((tile, index) => tile === index + 1));
   return tiles;
 }
 
@@ -49,6 +35,7 @@ export default function PicturePuzzle({ memberId }) {
   const [loadedMemberId, setLoadedMemberId] = useState(null);
   const [board, setBoard] = useState([]);
   const [startingBoard, setStartingBoard] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [moves, setMoves] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
@@ -78,6 +65,7 @@ export default function PicturePuzzle({ memberId }) {
         setMoves(0);
         setHintsUsed(0);
         setShowHint(false);
+        setSelectedIndex(null);
         setExpired(false);
         if (result.puzzle && !result.completed) {
           const nextBoard = shuffledBoard(result.puzzle.size);
@@ -96,7 +84,7 @@ export default function PicturePuzzle({ memberId }) {
 
   const activeGame = loadedMemberId === memberId ? game : null;
   const puzzle = activeGame?.puzzle;
-  const isSolved = Boolean(board.length && board.every((tile, index) => tile === (index + 1) % board.length));
+  const isSolved = Boolean(board.length && board.every((tile, index) => tile === index + 1));
   const scoreSaved = activeGame?.completed || false;
 
   useEffect(() => {
@@ -150,14 +138,10 @@ export default function PicturePuzzle({ memberId }) {
     }
   }
 
-  function moveTile(index) {
+  function moveTile(sourceIndex, targetIndex) {
     if (!memberId || expired || scoreSaved || saving || isSolved) return;
-    const emptyIndex = board.indexOf(0);
-    const isAdjacent =
-      Math.abs(Math.floor(index / puzzle.size) - Math.floor(emptyIndex / puzzle.size)) +
-        Math.abs((index % puzzle.size) - (emptyIndex % puzzle.size)) ===
-      1;
-    if (!isAdjacent) return;
+    const tile = board[sourceIndex];
+    if (sourceIndex === targetIndex || tile !== targetIndex + 1) return;
 
     const now = currentTimestamp();
     const start = startedAtRef.current || now;
@@ -166,22 +150,38 @@ export default function PicturePuzzle({ memberId }) {
       setStartedAt(now);
     }
     const nextBoard = [...board];
-    [nextBoard[index], nextBoard[emptyIndex]] = [nextBoard[emptyIndex], nextBoard[index]];
+    [nextBoard[sourceIndex], nextBoard[targetIndex]] = [
+      nextBoard[targetIndex],
+      nextBoard[sourceIndex],
+    ];
     const nextMoves = moves + 1;
     setBoard(nextBoard);
     setMoves(nextMoves);
+    setSelectedIndex(null);
 
-    if (nextBoard.every((tile, tileIndex) => tile === (tileIndex + 1) % nextBoard.length)) {
+    if (nextBoard.every((nextTile, tileIndex) => nextTile === tileIndex + 1)) {
       const timeSeconds = Math.max(1, Math.ceil((now - start) / 1000));
       setElapsedSeconds(timeSeconds);
       void saveScore(timeSeconds, nextMoves);
     }
+    return true;
+  }
+
+  function handleTileClick(index) {
+    if (selectedIndex === null) {
+      if (board[index] !== index + 1) setSelectedIndex(index);
+      return;
+    }
+
+    if (moveTile(selectedIndex, index)) return;
+    setSelectedIndex(board[index] !== index + 1 ? index : null);
   }
 
   function resetBoard(shuffle = false) {
     if (!puzzle || scoreSaved || saving) return;
     const nextBoard = shuffle ? shuffledBoard(puzzle.size) : [...startingBoard];
     setBoard(nextBoard);
+    setSelectedIndex(null);
     if (shuffle) setStartingBoard(nextBoard);
     setStartedAt(null);
     startedAtRef.current = null;
@@ -218,7 +218,7 @@ export default function PicturePuzzle({ memberId }) {
               {puzzle?.scheduleType === "weekly" ? "Weekly picture puzzle" : "Daily picture puzzle"}
             </p>
             <h2 className="mt-1 text-xl font-black text-slate-900 sm:text-2xl">
-              {puzzle?.title || "Sliding Picture Puzzle"}
+              {puzzle?.title || "Picture Jigsaw Puzzle"}
             </h2>
             {puzzle?.description && (
               <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{puzzle.description}</p>
@@ -277,24 +277,50 @@ export default function PicturePuzzle({ memberId }) {
                 Choose your member profile above to start and save a score.
               </p>
             )}
+            <p className="mb-3 text-sm text-slate-600">
+              Drag each piece to its matching spot. Pieces swap places; you can also select a piece, then select its destination.
+            </p>
             <div
               className="mx-auto grid aspect-square w-full max-w-[500px] overflow-hidden rounded-2xl border-4 border-white bg-slate-100 shadow-lg"
               style={{ gridTemplateColumns: `repeat(${puzzle.size}, minmax(0, 1fr))` }}
-              aria-label={`${puzzle.size} by ${puzzle.size} sliding puzzle`}
+              aria-label={`${puzzle.size} by ${puzzle.size} picture jigsaw puzzle`}
             >
               {board.map((tile, index) => {
-                if (tile === 0) {
-                  return <span key="empty" className="m-0.5 rounded-lg bg-violet-100" aria-label="Empty space" />;
-                }
                 const sourceIndex = tile - 1;
+                const isPlaced = tile === index + 1;
+                const canMove = memberId && !expired && !scoreSaved && !saving && !isSolved;
                 return (
                   <button
                     key={tile}
                     type="button"
-                    onClick={() => moveTile(index)}
-                    disabled={!memberId || expired || scoreSaved || saving}
-                    aria-label={`Tile ${tile}${memberId ? ", move toward the empty space" : ""}`}
-                    className="m-0.5 min-h-0 min-w-0 rounded-lg border border-white/60 bg-no-repeat shadow-sm transition hover:brightness-110 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-violet-600 disabled:cursor-default"
+                    onClick={() => handleTileClick(index)}
+                    draggable={Boolean(canMove && !isPlaced)}
+                    onDragStart={(event) => {
+                      if (!canMove || isPlaced) {
+                        event.preventDefault();
+                        return;
+                      }
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", String(index));
+                    }}
+                    onDragOver={(event) => {
+                      if (canMove && !isPlaced) event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const sourceIndex = Number(event.dataTransfer.getData("text/plain"));
+                      if (Number.isInteger(sourceIndex)) moveTile(sourceIndex, index);
+                    }}
+                    disabled={!canMove || isPlaced}
+                    aria-label={`Piece ${tile} of ${board.length}, destination ${tile}${isPlaced ? ", correctly placed" : ""}`}
+                    aria-pressed={selectedIndex === index}
+                    className={`m-0.5 min-h-0 min-w-0 rounded-lg border bg-no-repeat shadow-sm transition hover:brightness-110 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-violet-600 disabled:cursor-default ${
+                      isPlaced
+                        ? "border-emerald-300 ring-2 ring-inset ring-emerald-400"
+                        : selectedIndex === index
+                          ? "border-violet-700 ring-4 ring-inset ring-violet-500"
+                          : "border-white/60"
+                    }`}
                     style={{
                       backgroundImage: `url("${apiAssetUrl(puzzle.imageUrl)}")`,
                       backgroundSize: `${puzzle.size * 100}% ${puzzle.size * 100}%`,
