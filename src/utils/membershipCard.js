@@ -1,11 +1,43 @@
 import { apiAssetUrl } from "../lib/api";
 
+const DEFAULT_CARD_DESIGN = {
+  primaryColor: "#7c3aed",
+  secondaryColor: "#f3e8ff",
+  accentColor: "#ec4899",
+  title: "FRIENDSZONE",
+  subtitle: "Together we create unforgettable memories.",
+  badgeText: "MEMBERSHIP CARD",
+};
+
 function safeName(value) {
   return (value || "friend")
     .trim()
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
+}
+
+export function getMembershipCardDesign() {
+  try {
+    const saved = localStorage.getItem("friendszone-membership-card-design");
+    if (!saved) return DEFAULT_CARD_DESIGN;
+    return { ...DEFAULT_CARD_DESIGN, ...JSON.parse(saved) };
+  } catch {
+    return DEFAULT_CARD_DESIGN;
+  }
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3
+    ? normalized.split("").map((char) => char + char).join("")
+    : normalized;
+  const parsed = Number.parseInt(value, 16);
+  return [
+    (parsed >> 16) & 255,
+    (parsed >> 8) & 255,
+    parsed & 255,
+  ];
 }
 
 function decodeMemberId(member) {
@@ -69,6 +101,10 @@ export async function downloadMembershipCard(member) {
     throw new Error("This membership card is currently inactive.");
   }
 
+  const theme = getMembershipCardDesign();
+  const themePrimary = hexToRgb(theme.primaryColor || DEFAULT_CARD_DESIGN.primaryColor);
+  const themeSecondary = hexToRgb(theme.secondaryColor || DEFAULT_CARD_DESIGN.secondaryColor);
+  const themeAccent = hexToRgb(theme.accentColor || DEFAULT_CARD_DESIGN.accentColor);
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a5" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -87,23 +123,23 @@ export async function downloadMembershipCard(member) {
   pdf.setFillColor(248, 245, 255);
   pdf.rect(0, 0, pageWidth, pageHeight, "F");
 
-  pdf.setDrawColor(146, 113, 255);
+  pdf.setDrawColor(themePrimary[0], themePrimary[1], themePrimary[2]);
   pdf.setLineWidth(1.1);
   pdf.roundedRect(8, 8, pageWidth - 16, pageHeight - 16, 7, 7, "S");
 
-  pdf.setFillColor(241, 233, 255);
+  pdf.setFillColor(themeSecondary[0], themeSecondary[1], themeSecondary[2]);
   pdf.roundedRect(13, 12, pageWidth - 26, pageHeight - 24, 6, 6, "F");
 
   if (logoDataUrl) {
     pdf.addImage(logoDataUrl, "PNG", 24, 16, 48, 18);
   }
 
-  pdf.setTextColor(87, 75, 120);
+  pdf.setTextColor(themePrimary[0], themePrimary[1], themePrimary[2]);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
-  pdf.text("MEMBERSHIP CARD", center, 39, { align: "center" });
+  pdf.text(theme.badgeText || "MEMBERSHIP CARD", center, 39, { align: "center" });
 
-  pdf.setDrawColor(189, 171, 255);
+  pdf.setDrawColor(themePrimary[0], themePrimary[1], themePrimary[2]);
   pdf.setLineWidth(0.6);
   pdf.line(22, 43, pageWidth - 22, 43);
 
@@ -111,9 +147,9 @@ export async function downloadMembershipCard(member) {
     pdf.roundedRect(22, 49, 42, 52, 6, 6, "S");
     pdf.addImage(photoDataUrl, "PNG", 24, 51, 38, 48, undefined, "FAST");
   } else {
-    pdf.setFillColor(216, 196, 255);
+    pdf.setFillColor(themeSecondary[0], themeSecondary[1], themeSecondary[2]);
     pdf.roundedRect(22, 49, 42, 52, 6, 6, "F");
-    pdf.setTextColor(109, 40, 217);
+    pdf.setTextColor(themePrimary[0], themePrimary[1], themePrimary[2]);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(20);
     const initials = (member?.name || "FZ")
@@ -131,7 +167,7 @@ export async function downloadMembershipCard(member) {
   const nameLines = pdf.splitTextToSize(member?.name || "FriendsZone Member", 90);
   pdf.text(nameLines, 74, 62, { maxWidth: 90 });
 
-  pdf.setTextColor(124, 58, 237);
+  pdf.setTextColor(themePrimary[0], themePrimary[1], themePrimary[2]);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(9);
   const role = (member?.role || "FriendsZone Member").toUpperCase();
@@ -142,7 +178,7 @@ export async function downloadMembershipCard(member) {
   pdf.setFontSize(9);
   pdf.text(`Member since ${formatJoinedAt(member?.joinedAt)}`, 74, 82);
 
-  pdf.setTextColor(109, 40, 217);
+  pdf.setTextColor(themePrimary[0], themePrimary[1], themePrimary[2]);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(9);
   pdf.text("MEMBERSHIP ID", 22, 111);
@@ -160,7 +196,7 @@ export async function downloadMembershipCard(member) {
   const cityText = member?.city ? `Location: ${member.city}` : "Community member";
   pdf.text(cityText, 22, 142);
 
-  pdf.setTextColor(109, 40, 217);
+  pdf.setTextColor(themePrimary[0], themePrimary[1], themePrimary[2]);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(8);
   pdf.text("VERIFY WITH QR", pageWidth - 22, 112, { align: "right" });
@@ -171,12 +207,12 @@ export async function downloadMembershipCard(member) {
   pdf.setTextColor(38, 32, 53);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(14);
-  pdf.text("FRIENDSZONE", center, 175, { align: "center" });
+  pdf.text(theme.title || "FRIENDSZONE", center, 175, { align: "center" });
 
-  pdf.setTextColor(112, 96, 137);
+  pdf.setTextColor(themeAccent[0], themeAccent[1], themeAccent[2]);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8.5);
-  pdf.text("Together we create unforgettable memories.", center, 182, { align: "center" });
+  pdf.text(theme.subtitle || "Together we create unforgettable memories.", center, 182, { align: "center" });
 
   const fileName = `${safeName(member?.name || "friend")}-membership-card.pdf`;
   pdf.save(fileName);

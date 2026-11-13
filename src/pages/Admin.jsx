@@ -7,10 +7,11 @@ import PlayZoneAdmin from "../components/PlayZoneAdmin";
 import WishesAdmin from "../components/WishesAdmin";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
-import { downloadMembershipCard } from "../utils/membershipCard";
+import { downloadMembershipCard, getMembershipCardDesign } from "../utils/membershipCard";
 
 
 const TOKEN_KEY = "friendszone-admin-token";
+const CARD_DESIGN_KEY = "friendszone-membership-card-design";
 const emptyMember = {
   name: "",
   role: "FriendsZone Member",
@@ -86,6 +87,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)));
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cardDesign, setCardDesign] = useState(() => getMembershipCardDesign());
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -211,6 +213,14 @@ export default function Admin() {
       setUploading(false);
       event.target.value = "";
     }
+  }
+
+  function updateCardDesign(field, value) {
+    setCardDesign((current) => {
+      const next = { ...current, [field]: value };
+      localStorage.setItem(CARD_DESIGN_KEY, JSON.stringify(next));
+      return next;
+    });
   }
 
   async function saveRecord(event) {
@@ -405,6 +415,38 @@ export default function Admin() {
           </section>
 
           <section className="h-fit rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
+            {isMember && (
+              <div className="mb-6 rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
+                <h3 className="text-lg font-black text-slate-900">Membership card design</h3>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Primary color
+                    <input type="color" value={cardDesign.primaryColor} onChange={(event) => updateCardDesign("primaryColor", event.target.value)} className="mt-2 h-12 w-full cursor-pointer rounded-lg border border-violet-200 bg-white p-1" />
+                  </label>
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Card background color
+                    <input type="color" value={cardDesign.secondaryColor} onChange={(event) => updateCardDesign("secondaryColor", event.target.value)} className="mt-2 h-12 w-full cursor-pointer rounded-lg border border-violet-200 bg-white p-1" />
+                  </label>
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Accent color
+                    <input type="color" value={cardDesign.accentColor} onChange={(event) => updateCardDesign("accentColor", event.target.value)} className="mt-2 h-12 w-full cursor-pointer rounded-lg border border-violet-200 bg-white p-1" />
+                  </label>
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Badge text
+                    <input value={cardDesign.badgeText} onChange={(event) => updateCardDesign("badgeText", event.target.value)} className="mt-2 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />
+                  </label>
+                  <label className="block sm:col-span-2 text-sm font-semibold text-slate-700">
+                    Brand title
+                    <input value={cardDesign.title} onChange={(event) => updateCardDesign("title", event.target.value)} className="mt-2 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />
+                  </label>
+                  <label className="block sm:col-span-2 text-sm font-semibold text-slate-700">
+                    Tagline
+                    <input value={cardDesign.subtitle} onChange={(event) => updateCardDesign("subtitle", event.target.value)} className="mt-2 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />
+                  </label>
+                </div>
+              </div>
+            )}
+
             <h2 className="text-xl font-black text-slate-900">{editingId ? "Edit" : "Add"} {isMember ? "member" : "memory"}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Choose an image from your device. Once uploaded, save the record to attach it.
