@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Camera, LogOut, Save, UserRound } from "lucide-react";
 import { apiAssetUrl, apiRequest } from "../lib/api";
+import { downloadMembershipCard } from "../utils/membershipCard";
 
 const VOTER_TOKEN_KEY = "friendszone-voter-token";
 const currentDate = new Date();
@@ -57,6 +58,7 @@ export default function MyProfile() {
   const [signingIn, setSigningIn] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState("");
+  const [downloadingCard, setDownloadingCard] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -187,6 +189,20 @@ export default function MyProfile() {
     }
   }
 
+  async function downloadMyMembershipCard() {
+    setError("");
+    setNotice("");
+    setDownloadingCard(true);
+    try {
+      await downloadMembershipCard(form);
+      setNotice("Your FriendsZone membership card is downloading.");
+    } catch (downloadError) {
+      setError(downloadError.message);
+    } finally {
+      setDownloadingCard(false);
+    }
+  }
+
   if (!token) {
     return (
       <main className="flex min-h-[65vh] items-center justify-center bg-[#faf8ff] px-5 py-16">
@@ -288,6 +304,9 @@ export default function MyProfile() {
             <div className="flex flex-wrap gap-3">
               <button type="submit" disabled={saving || Boolean(uploading)} className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-6 py-3 font-bold text-white hover:bg-violet-700 disabled:opacity-60">
                 <Save size={17} /> {saving ? "Saving…" : "Save profile"}
+              </button>
+              <button type="button" onClick={downloadMyMembershipCard} disabled={downloadingCard} className="rounded-full border border-violet-200 bg-white px-6 py-3 font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-60">
+                {downloadingCard ? "Preparing card…" : "Download My Membership Card"}
               </button>
               <Link to="/members" className="rounded-full border border-violet-200 bg-white px-6 py-3 font-bold text-violet-700 hover:bg-violet-50">View members</Link>
             </div>

@@ -7,6 +7,7 @@ import PlayZoneAdmin from "../components/PlayZoneAdmin";
 import WishesAdmin from "../components/WishesAdmin";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
+import { downloadMembershipCard } from "../utils/membershipCard";
 
 
 const TOKEN_KEY = "friendszone-admin-token";
@@ -373,6 +374,9 @@ export default function Admin() {
                           : `${formatMonthYear(item.date)} · ${item.published ? "Published" : "Draft"}`}
                       </p>
                     </div>
+                    {isMember && (
+                      <button type="button" onClick={() => downloadMembershipCard(item)} className="rounded-lg px-3 py-2 text-sm font-bold text-violet-700 hover:bg-violet-50">Download Card</button>
+                    )}
                     <button type="button" onClick={() => editRecord(item)} className="rounded-lg px-3 py-2 text-sm font-bold text-violet-700 hover:bg-violet-50">Edit</button>
                     <button type="button" onClick={() => deleteRecord(item)} aria-label={`Delete ${isMember ? item.name : item.title}`} className="rounded-lg p-2 text-red-600 hover:bg-red-50"><Trash2 size={17} /></button>
                   </article>

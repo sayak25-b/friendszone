@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Heart,
@@ -10,8 +10,9 @@ import {
   X,
 } from "lucide-react";
 import useApiData from "../hooks/useApiData";
-import { apiAssetUrl } from "../lib/api";
+import { apiAssetUrl, apiRequest } from "../lib/api";
 import { formatMonthYear } from "../utils/dateFormat";
+import { downloadMembershipCard } from "../utils/membershipCard";
 
 function safeSocialUrl(value) {
   try {
@@ -33,7 +34,30 @@ function otherSocialLinks(value) {
 export default function Members() {
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
+  const [currentMemberId, setCurrentMemberId] = useState("");
   const { data: members, loading, error } = useApiData("/members");
+
+  useEffect(() => {
+    const voterToken = localStorage.getItem("friendszone-voter-token");
+    if (!voterToken) {
+      setCurrentMemberId("");
+      return;
+    }
+    apiRequest("/auth/voter/me", { token: voterToken })
+      .then((account) => setCurrentMemberId(String(account.memberId)))
+      .catch(() => setCurrentMemberId(""));
+  }, []);
+
+  const isAdminSignedIn = Boolean(localStorage.getItem("friendszone-admin-token"));
+  const canDownloadSelectedCard = selectedMember && (isAdminSignedIn || currentMemberId === String(selectedMember._id));
+
+  async function handleMembershipDownload(member) {
+    if (!member) return;
+    if (!isAdminSignedIn && currentMemberId !== String(member._id)) {
+      return;
+    }
+    await downloadMembershipCard(member);
+  }
 
   const filteredMembers = useMemo(() => {
     return members.filter((member) => {
@@ -382,6 +406,16 @@ export default function Members() {
                 <p className="mt-4 text-xs text-slate-400">
                   Joined {formatMonthYear(selectedMember.joinedAt)}
                 </p>
+              )}
+
+              {canDownloadSelectedCard && (
+                <button
+                  type="button"
+                  onClick={() => handleMembershipDownload(selectedMember)}
+                  className="mt-5 w-full rounded-full bg-violet-600 px-5 py-3 text-sm font-bold text-white hover:bg-violet-700"
+                >
+                  Download Membership Card
+                </button>
               )}
 
               <div className="mt-6 flex items-center gap-2 rounded-2xl bg-pink-50 p-4 text-sm font-medium text-pink-700">
