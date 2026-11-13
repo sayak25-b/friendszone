@@ -26,6 +26,8 @@ const memberSchema = new mongoose.Schema(
       maxlength: 254,
       default: undefined,
     },
+    membershipId: { type: String, trim: true, maxlength: 32, default: "" },
+    isMembershipCardActive: { type: Boolean, default: true },
     instagram: { type: String, trim: true, maxlength: 2048, default: "" },
     website: { type: String, trim: true, maxlength: 2048, default: "" },
     otherLinks: { type: String, trim: true, maxlength: 2048, default: "" },
@@ -35,5 +37,6 @@ const memberSchema = new mongoose.Schema(
 );
 
 memberSchema.index({ email: 1 }, { unique: true, sparse: true });
+memberSchema.index({ membershipId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model("Member", memberSchema);

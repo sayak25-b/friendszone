@@ -64,17 +64,22 @@ async function loadExternalImage(imageUrl) {
 }
 
 export async function downloadMembershipCard(member) {
+  if (!member) throw new Error("Member details are missing.");
+  if (member.isMembershipCardActive === false) {
+    throw new Error("This membership card is currently inactive.");
+  }
+
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a5" });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const center = pageWidth / 2;
+  const membershipId = String(member.membershipId || decodeMemberId(member));
+  const verificationUrl = `${window.location.origin}/verify-membership?membershipId=${encodeURIComponent(membershipId)}`;
 
   const logoDataUrl = await loadExternalImage("/friendszone-logo.png");
   const qrDataUrl = await loadExternalImage(
-    `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-      `https://friendszone.app/members/${member?._id || ""}`
-    )}`
+    `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(verificationUrl)}`
   );
   const photoUrl = member?.imageUrl ? apiAssetUrl(member.imageUrl) : "";
   const photoDataUrl = photoUrl ? await loadImageDataUrl(photoUrl) : "";
@@ -142,7 +147,6 @@ export async function downloadMembershipCard(member) {
   pdf.setFontSize(9);
   pdf.text("MEMBERSHIP ID", 22, 111);
 
-  const membershipId = decodeMemberId(member);
   pdf.setFillColor(255, 255, 255);
   pdf.roundedRect(22, 116, 86, 15, 4, 4, "F");
   pdf.setTextColor(51, 41, 79);

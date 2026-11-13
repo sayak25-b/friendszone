@@ -12,6 +12,7 @@ import BirthdayCalendar from "./pages/BirthdayCalendar";
 import FriendsAwards from "./pages/FriendsAwards";
 import PlayZone from "./pages/PlayZone";
 import MyProfile from "./pages/MyProfile";
+import VerifyMembership from "./pages/VerifyMembership";
 
 
 function NotFound() {
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/birthday-calendar" element={<BirthdayCalendar />} />
             <Route path="/awards" element={<FriendsAwards />} />
             <Route path="/play-zone" element={<PlayZone />} />
+            <Route path="/verify-membership" element={<VerifyMembership />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>

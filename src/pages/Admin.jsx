@@ -19,6 +19,8 @@ const emptyMember = {
   imageUrl: "",
   joinedAt: new Date().toISOString().slice(0, 10),
   email: "",
+  membershipId: "",
+  isMembershipCardActive: true,
   instagram: "",
   website: "",
   isActive: true,
@@ -117,6 +119,15 @@ export default function Admin() {
     }));
   }
 
+  function generateMembershipId() {
+    const candidates = items
+      .filter((item) => item.membershipId && /^FZ[-_ ]?\d+$/i.test(String(item.membershipId)))
+      .map((item) => Number(String(item.membershipId).replace(/\D+/g, "")))
+      .filter((value) => Number.isFinite(value));
+    const next = candidates.length ? Math.max(...candidates) + 1 : 1001;
+    return `FZ-${String(next).padStart(4, "0")}`;
+  }
+
   function newRecord() {
     setEditingId("");
     setForm({ ...emptyForm });
@@ -130,7 +141,12 @@ export default function Admin() {
     setImageSource("url");
     setForm(
       isMember
-        ? { ...item, joinedAt: dateInput(item.joinedAt) }
+        ? {
+            ...item,
+            membershipId: item.membershipId || "",
+            isMembershipCardActive: item.isMembershipCardActive !== false,
+            joinedAt: dateInput(item.joinedAt),
+          }
         : { ...item, date: dateInput(item.date), tags: (item.tags || []).join(", ") }
     );
     setError("");
@@ -207,6 +223,7 @@ export default function Admin() {
       payload = isMember
         ? {
             ...form,
+            membershipId: form.membershipId?.trim() || generateMembershipId(),
             joinedAt: form.joinedAt
               ? new Date(`${form.joinedAt}T12:00:00`).toISOString()
               : undefined,
@@ -400,6 +417,8 @@ export default function Admin() {
                   <TextField label="Role" name="role" value={form.role} onChange={changeField} />
                   <TextField label="City" name="city" value={form.city} onChange={changeField} />
                   <TextField label="Joined on" name="joinedAt" type="date" value={form.joinedAt} onChange={changeField} />
+                  <TextField label="Membership ID" name="membershipId" value={form.membershipId} onChange={changeField} placeholder="FZ-1001" />
+                  <CheckField label="Membership card active" name="isMembershipCardActive" checked={form.isMembershipCardActive} onChange={changeField} />
                   <label className="block">
                     <span className="mb-2 block text-sm font-bold text-slate-700">Bio</span>
                     <textarea name="bio" value={form.bio} onChange={changeField} rows={3} className="w-full rounded-xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />
