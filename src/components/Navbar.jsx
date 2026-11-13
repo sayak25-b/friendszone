@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Menu, X, Heart } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 const links = [
   { name: "Home", path: "/" },
@@ -49,14 +49,14 @@ export default function Navbar() {
         <Link
           to="/"
           onClick={() => setMenuOpen(false)}
-          className="flex items-center gap-2"
+          className="flex items-center"
+          aria-label="FriendsZone home"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-pink-500 text-white">
-            <Heart size={22} fill="currentColor" />
-          </span>
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">
-            Friends<span className="text-violet-600">Zone</span>
-          </span>
+          <img
+            src="/friendszone-logo.png"
+            alt="FriendsZone logo"
+            className="h-14 w-auto object-contain drop-shadow-[0_8px_12px_rgba(168,85,247,0.35)] md:h-20"
+          />
         </Link>
 
         <div className="hidden items-center gap-5 lg:flex">
