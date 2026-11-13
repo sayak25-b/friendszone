@@ -49,7 +49,7 @@ export default function Navbar() {
         <Link
           to="/"
           onClick={() => setMenuOpen(false)}
-          className="flex items-center"
+          className="flex items-center gap-2"
           aria-label="FriendsZone home"
         >
           <img
@@ -57,6 +57,9 @@ export default function Navbar() {
             alt="FriendsZone logo"
             className="h-14 w-auto object-contain drop-shadow-[0_8px_12px_rgba(168,85,247,0.35)] md:h-20"
           />
+          <span className="text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">
+            Friends<span className="text-violet-600">Zone</span>
+          </span>
         </Link>
 
         <div className="hidden items-center gap-5 lg:flex">
