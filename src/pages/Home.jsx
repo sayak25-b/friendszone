@@ -11,6 +11,7 @@ import {
   Users,
   Sparkles,
   Gamepad2,
+  Cake,
 } from "lucide-react";
 import useApiData from "../hooks/useApiData";
 import { apiAssetUrl, apiRequest } from "../lib/api";
@@ -58,6 +59,66 @@ function ActiveWishBanner() {
   }
 
   return <WishBanner wish={wish} onClose={dismiss} />;
+}
+
+function TodayBirthdayBanner() {
+  const { data: members, error } = useApiData("/members");
+  const [todayMonthDay] = useState(() => {
+    const today = new Date();
+    return `${String(today.getMonth() + 1).padStart(2, "0")}-${String(
+      today.getDate()
+    ).padStart(2, "0")}`;
+  });
+  const birthdayMembers = members.filter((member) => {
+    if (!member.birthday) return false;
+    const birthday = String(member.birthday).slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(birthday) && birthday.slice(5) === todayMonthDay;
+  });
+
+  if (!birthdayMembers.length) {
+    return error ? (
+      <p role="status" className="bg-amber-50 px-5 py-2 text-center text-xs text-amber-800">
+        Today’s member birthdays could not be loaded: {error}
+      </p>
+    ) : null;
+  }
+
+  return (
+    <section
+      aria-label="Today's member birthdays"
+      className="relative isolate overflow-hidden bg-gradient-to-r from-pink-600 via-violet-600 to-fuchsia-600 px-4 py-8 text-white sm:px-8 sm:py-11"
+    >
+      <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
+      <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-5 text-center sm:gap-6">
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] sm:text-sm">
+          <Cake size={17} aria-hidden="true" />
+          FriendsZone celebration
+        </span>
+        <h2 className="text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl">
+          Happy Birthday!
+        </h2>
+        <div className="flex max-w-4xl flex-wrap justify-center gap-2 sm:gap-3">
+          {birthdayMembers.map((member) => (
+            <span
+              key={member._id}
+              className="max-w-full break-words rounded-full border border-white/30 bg-white/15 px-4 py-2 text-lg font-extrabold sm:px-5 sm:py-2.5 sm:text-xl"
+            >
+              {member.name}
+            </span>
+          ))}
+        </div>
+        <p className="max-w-2xl text-sm leading-6 text-white/90 sm:text-base sm:leading-7">
+          Wishing you a day full of laughter, lovely surprises, and all the happiness you bring to our friends.
+        </p>
+        <Link
+          to="/birthday-calendar"
+          className="inline-flex min-h-11 items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-bold text-violet-700 transition hover:bg-pink-50"
+        >
+          Visit the birthday calendar
+        </Link>
+      </div>
+    </section>
+  );
 }
 
 function MemoryCarousel() {
@@ -209,6 +270,7 @@ function MemoryCarousel() {
 export default function Home() {
   return (
     <main>
+      <TodayBirthdayBanner />
       <ActiveWishBanner />
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-violet-50 via-white to-pink-50">
         <div className="home-fireworks pointer-events-none absolute inset-0" aria-hidden="true">
