@@ -24,6 +24,12 @@ export default function WishBanner({ wish, onClose, preview = false }) {
       }}
       aria-label={`${wish.title}: ${wish.message}`}
     >
+      {imageUrl && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-slate-950/65 via-slate-950/45 to-slate-950/65"
+          aria-hidden="true"
+        />
+      )}
       <div className="wish-banner-sparkle wish-banner-sparkle-one" aria-hidden="true">✦</div>
       <div className="wish-banner-sparkle wish-banner-sparkle-two" aria-hidden="true">✧</div>
       <div className="wish-banner-sparkle wish-banner-sparkle-three" aria-hidden="true">✷</div>
@@ -32,27 +38,27 @@ export default function WishBanner({ wish, onClose, preview = false }) {
           type="button"
           onClick={onClose}
           aria-label={preview ? "Close greeting preview" : "Dismiss greeting"}
-          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white transition hover:bg-white/20 sm:right-6 sm:top-6"
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/30 text-white transition hover:bg-white/20 sm:right-6 sm:top-6"
         >
           <X size={20} />
         </button>
       )}
-      <div className="relative z-10 mx-auto flex min-h-48 max-w-7xl items-center justify-center px-6 py-10 text-center sm:min-h-56 sm:px-12 sm:py-12">
-        <div className="max-w-4xl">
+      <div className="relative z-10 mx-auto flex min-h-48 max-w-7xl items-center justify-center px-4 py-14 text-center sm:min-h-56 sm:px-12 sm:py-12">
+        <div className="w-full min-w-0 max-w-4xl">
           <p className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-white/90 backdrop-blur">
             <Sparkles size={15} style={{ color: "var(--wish-accent)" }} />
             {themeDetails[wish.theme]?.label || themeDetails.celebration.label}
           </p>
-          <h2 className="mt-4 text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-            <span className="mr-3" style={{ color: "var(--wish-accent)" }} aria-hidden="true">
+          <h2 className="mt-4 break-words text-3xl font-black leading-tight tracking-tight [overflow-wrap:anywhere] sm:text-4xl lg:text-5xl">
+            <span className="mr-1 sm:mr-3" style={{ color: "var(--wish-accent)" }} aria-hidden="true">
               {themeDetails[wish.theme]?.decoration || "✦"}
             </span>
             {wish.title}
-            <span className="ml-3" style={{ color: "var(--wish-accent)" }} aria-hidden="true">
+            <span className="ml-1 sm:ml-3" style={{ color: "var(--wish-accent)" }} aria-hidden="true">
               {themeDetails[wish.theme]?.decoration || "✦"}
             </span>
           </h2>
-          <p className="mx-auto mt-3 max-w-3xl whitespace-pre-line text-base leading-7 text-white/90 sm:text-lg sm:leading-8">
+          <p className="mx-auto mt-3 max-w-3xl whitespace-pre-line break-words text-base leading-7 text-white/90 [overflow-wrap:anywhere] sm:text-lg sm:leading-8">
             {wish.message}
           </p>
         </div>

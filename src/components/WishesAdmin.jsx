@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, Gift, ImagePlus, Plus, Save, Trash2 } from "lucide-react";
+import { Cake, Eye, Gift, ImagePlus, Plus, Save, Trash2 } from "lucide-react";
 import { apiAssetUrl, apiRequest } from "../lib/api";
 import WishBanner from "./WishBanner";
 
@@ -81,6 +81,19 @@ export default function WishesAdmin({ token }) {
     setEditingId("");
     setForm(newWish());
     setImageSource("url");
+    setPreview(false);
+    setError("");
+    setNotice("");
+  }
+
+  function startBirthdayWish() {
+    setEditingId("");
+    setForm({
+      ...newWish(),
+      title: "Happy Birthday!",
+      message: "Wishing you a day filled with joy, laughter, and all the things you love. Happy birthday from your FriendsZone family!",
+    });
+    setImageSource("upload");
     setPreview(false);
     setError("");
     setNotice("");
@@ -260,7 +273,14 @@ export default function WishesAdmin({ token }) {
       </div>
 
       <div className="rounded-[1.75rem] border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
-        <h2 className="text-xl font-black text-slate-900">{editingId ? "Edit wish" : "Create a wish"}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-black text-slate-900">{editingId ? "Edit wish" : "Create a wish"}</h2>
+          {!editingId && (
+            <button type="button" onClick={startBirthdayWish} className="inline-flex items-center gap-2 rounded-full border border-pink-200 px-4 py-2 text-sm font-bold text-pink-700 hover:bg-pink-50">
+              <Cake size={17} /> Birthday wish template
+            </button>
+          )}
+        </div>
         <p className="mt-2 text-sm leading-6 text-slate-500">Set the greeting, design and dates. It appears automatically during its scheduled window.</p>
         <form onSubmit={saveWish} className="mt-6 space-y-4">
           <label className="block">
@@ -273,7 +293,7 @@ export default function WishesAdmin({ token }) {
           </label>
 
           <fieldset className="space-y-3 rounded-2xl border border-violet-100 p-4">
-            <legend className="px-2 text-sm font-bold text-slate-700">Background image or banner</legend>
+            <legend className="px-2 text-sm font-bold text-slate-700">Photo or banner</legend>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex items-center gap-2 rounded-xl border border-violet-100 px-3 py-2 text-sm font-semibold text-slate-700">
                 <input type="radio" name="wishImageSource" checked={imageSource === "url"} onChange={() => setImageSource("url")} className="accent-violet-600" /> Image URL
