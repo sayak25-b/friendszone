@@ -75,17 +75,9 @@ function TodayBirthdayBanner() {
     return /^\d{4}-\d{2}-\d{2}$/.test(birthday) && birthday.slice(5) === todayMonthDay;
   });
 
-  if (!birthdayMembers.length) {
-    return error ? (
-      <p role="status" className="bg-amber-50 px-5 py-2 text-center text-xs text-amber-800">
-        Today’s member birthdays could not be loaded: {error}
-      </p>
-    ) : null;
-  }
-
   return (
     <section
-      aria-label="Today's member birthdays"
+      aria-label="Birthday wishes for FriendsZone members"
       className="relative isolate overflow-hidden bg-gradient-to-r from-pink-600 via-violet-600 to-fuchsia-600 px-4 py-8 text-white sm:px-8 sm:py-11"
     >
       <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
@@ -95,21 +87,30 @@ function TodayBirthdayBanner() {
           FriendsZone celebration
         </span>
         <h2 className="text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-          Happy Birthday!
+          {birthdayMembers.length ? "Happy Birthday!" : "Birthday wishes to our members!"}
         </h2>
-        <div className="flex max-w-4xl flex-wrap justify-center gap-2 sm:gap-3">
-          {birthdayMembers.map((member) => (
-            <span
-              key={member._id}
-              className="max-w-full break-words rounded-full border border-white/30 bg-white/15 px-4 py-2 text-lg font-extrabold sm:px-5 sm:py-2.5 sm:text-xl"
-            >
-              {member.name}
-            </span>
-          ))}
-        </div>
+        {birthdayMembers.length > 0 && (
+          <div className="flex max-w-4xl flex-wrap justify-center gap-2 sm:gap-3">
+            {birthdayMembers.map((member) => (
+              <span
+                key={member._id}
+                className="max-w-full break-words rounded-full border border-white/30 bg-white/15 px-4 py-2 text-lg font-extrabold sm:px-5 sm:py-2.5 sm:text-xl"
+              >
+                {member.name}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="max-w-2xl text-sm leading-6 text-white/90 sm:text-base sm:leading-7">
-          Wishing you a day full of laughter, lovely surprises, and all the happiness you bring to our friends.
+          {birthdayMembers.length
+            ? "Wishing you a day full of laughter, lovely surprises, and all the happiness you bring to our friends."
+            : "Wishing every member a year filled with laughter, lovely surprises, and wonderful moments with friends."}
         </p>
+        {error && (
+          <p role="status" className="text-xs text-white/80">
+            Today’s member birthdays could not be loaded: {error}
+          </p>
+        )}
         <Link
           to="/birthday-calendar"
           className="inline-flex min-h-11 items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-bold text-violet-700 transition hover:bg-pink-50"
