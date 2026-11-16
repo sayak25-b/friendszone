@@ -31,10 +31,71 @@ function currentTimestamp() {
 }
 
 export default function PicturePuzzle({ memberId }) {
-  const [game, setGame] = useState(null);
+  const [games, setGames] = useState([]);
   const [loadedMemberId, setLoadedMemberId] = useState(null);
-  const [board, setBoard] = useState([]);
-  const [startingBoard, setStartingBoard] = useState([]);
+  const [loadError, setLoadError] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const query = memberId ? `?memberId=${encodeURIComponent(memberId)}` : "";
+    apiRequest(`/play-zone/puzzle${query}`, { signal: controller.signal })
+      .then((result) => {
+        setGames(result.puzzles.map((game) => ({
+          ...game,
+          initialBoard: game.completed ? [] : shuffledBoard(game.puzzle.size),
+        })));
+        setLoadedMemberId(memberId);
+        setLoadError(null);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setLoadError({ memberId, message: error.message });
+      });
+    return () => controller.abort();
+  }, [memberId]);
+
+  if (loadError?.memberId === memberId) {
+    return (
+      <section className="mt-6 rounded-3xl border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          The picture puzzles could not be loaded: {loadError.message}
+        </p>
+      </section>
+    );
+  }
+
+  if (loadedMemberId !== memberId) {
+    return (
+      <section className="mt-6 rounded-3xl border border-violet-100 bg-white p-7 text-center text-sm text-slate-500">
+        Loading picture puzzles…
+      </section>
+    );
+  }
+
+  if (!games.length) {
+    return (
+      <section className="mt-6 rounded-3xl border border-violet-100 bg-white p-7 text-center text-sm text-slate-500">
+        No picture puzzles have been added to the Play Zone yet.
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {games.map((initialGame) => (
+        <PuzzleGame
+          key={`${memberId}-${initialGame.puzzle._id}`}
+          initialGame={initialGame}
+          memberId={memberId}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PuzzleGame({ initialGame, memberId }) {
+  const [game, setGame] = useState(initialGame);
+  const [board, setBoard] = useState(initialGame.initialBoard);
+  const [startingBoard, setStartingBoard] = useState(initialGame.initialBoard);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [moves, setMoves] = useState(0);
@@ -51,38 +112,7 @@ export default function PicturePuzzle({ memberId }) {
     activeMemberIdRef.current = memberId;
   }, [memberId]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const query = memberId ? `?memberId=${encodeURIComponent(memberId)}` : "";
-    apiRequest(`/play-zone/puzzle${query}`, { signal: controller.signal })
-      .then((result) => {
-        setGame(result);
-        setLoadedMemberId(memberId);
-        setError("");
-        setStartedAt(null);
-        startedAtRef.current = null;
-        setElapsedSeconds(0);
-        setMoves(0);
-        setHintsUsed(0);
-        setShowHint(false);
-        setSelectedIndex(null);
-        setExpired(false);
-        if (result.puzzle && !result.completed) {
-          const nextBoard = shuffledBoard(result.puzzle.size);
-          setBoard(nextBoard);
-          setStartingBoard(nextBoard);
-        } else {
-          setBoard([]);
-          setStartingBoard([]);
-        }
-      })
-      .catch((loadError) => {
-        if (!controller.signal.aborted) setError(loadError.message);
-      });
-    return () => controller.abort();
-  }, [memberId]);
-
-  const activeGame = loadedMemberId === memberId ? game : null;
+  const activeGame = game;
   const puzzle = activeGame?.puzzle;
   const isSolved = Boolean(board.length && board.every((tile, index) => tile === index + 1));
   const scoreSaved = activeGame?.completed || false;
@@ -121,7 +151,10 @@ export default function PicturePuzzle({ memberId }) {
           `/play-zone/puzzle?memberId=${encodeURIComponent(scoringMemberId)}`
         );
         if (activeMemberIdRef.current === scoringMemberId) {
-          setGame(refreshed);
+          const refreshedGame = refreshed.puzzles.find(
+            (item) => String(item.puzzle._id) === String(puzzle._id)
+          );
+          if (refreshedGame) setGame(refreshedGame);
           setError("");
         }
       } catch (refreshError) {
@@ -198,16 +231,8 @@ export default function PicturePuzzle({ memberId }) {
     if (!showHint) setHintsUsed((count) => count + 1);
   }
 
-  if (!activeGame && !error) {
-    return (
-      <section className="mt-6 rounded-3xl border border-violet-100 bg-white p-7 text-center text-sm text-slate-500">
-        Loading today's picture puzzle…
-      </section>
-    );
-  }
-
   return (
-    <section className="mt-6 rounded-3xl border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
+    <section className="rounded-3xl border border-violet-100 bg-white p-5 shadow-sm sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-pink-100 text-pink-600">
@@ -236,7 +261,7 @@ export default function PicturePuzzle({ memberId }) {
 
       {!puzzle ? (
         <p className="mt-5 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          {error ? "The picture puzzle could not be loaded." : "No picture puzzle is scheduled for today yet."}
+          {error ? "The picture puzzle could not be loaded." : "This picture puzzle is unavailable."}
         </p>
       ) : (
         <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">

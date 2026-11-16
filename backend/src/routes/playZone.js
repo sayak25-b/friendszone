@@ -18,16 +18,6 @@ function todayKey() {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-async function findScheduledPuzzle(date) {
-  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
-  const scheduled = await Puzzle.find({ scheduleDate: { $lte: date } })
-    .sort({ scheduleDate: -1, createdAt: -1 })
-    .lean();
-  return scheduled.find(
-    (item) => item.scheduleType === "daily" || item.weeklyDay === weekday
-  ) || null;
-}
-
 function badRequest(message) {
   const error = new Error(message);
   error.status = 400;
@@ -446,38 +436,46 @@ router.get("/", async (req, res, next) => {
 router.get("/puzzle", async (req, res, next) => {
   try {
     const date = todayKey();
-    const puzzle = await findScheduledPuzzle(date);
-    if (!puzzle) return res.json({ puzzle: null, completed: false, leaderboard: [], badges: [] });
-
-    const scores = await PuzzleScore.find({ puzzle: puzzle._id, challengeDate: date })
-      .populate({ path: "member", select: "name" })
-      .sort({ timeSeconds: 1, moves: 1, createdAt: 1 })
-      .limit(10)
-      .lean();
+    const puzzles = await Puzzle.find().sort({ scheduleDate: -1, createdAt: -1 }).lean();
     const memberId = req.query.memberId;
-    const ownScore = memberId && mongoose.isValidObjectId(memberId)
-      ? await PuzzleScore.findOne({ puzzle: puzzle._id, member: memberId, challengeDate: date }).lean()
-      : null;
-    const completedCount = memberId && mongoose.isValidObjectId(memberId)
-      ? await PuzzleScore.countDocuments({ member: memberId })
-      : 0;
+    const hasMember = memberId && mongoose.isValidObjectId(memberId);
+    const [scores, completedCount] = await Promise.all([
+      PuzzleScore.find({
+        puzzle: { $in: puzzles.map((puzzle) => puzzle._id) },
+        challengeDate: date,
+      })
+        .populate({ path: "member", select: "name" })
+        .sort({ timeSeconds: 1, moves: 1, createdAt: 1 })
+        .lean(),
+      hasMember ? PuzzleScore.countDocuments({ member: memberId }) : 0,
+    ]);
     const badges = [];
     if (completedCount >= 1) badges.push("First Finish");
     if (completedCount >= 5) badges.push("Puzzle Pro");
     if (completedCount >= 10) badges.push("Puzzle Champion");
     return res.json({
-      puzzle,
-      challengeDate: date,
-      completed: Boolean(ownScore),
-      ownScore,
-      leaderboard: scores.map((score) => ({
-        memberId: String(score.member?._id || ""),
-        name: score.member?.name || "Former member",
-        timeSeconds: score.timeSeconds,
-        moves: score.moves,
-        points: score.points,
-      })),
-      badges,
+      puzzles: puzzles.map((puzzle) => {
+        const puzzleScores = scores.filter(
+          (score) => String(score.puzzle) === String(puzzle._id)
+        );
+        const ownScore = hasMember
+          ? puzzleScores.find((score) => String(score.member?._id) === String(memberId)) || null
+          : null;
+        return {
+          puzzle,
+          challengeDate: date,
+          completed: Boolean(ownScore),
+          ownScore,
+          leaderboard: puzzleScores.slice(0, 10).map((score) => ({
+            memberId: String(score.member?._id || ""),
+            name: score.member?.name || "Former member",
+            timeSeconds: score.timeSeconds,
+            moves: score.moves,
+            points: score.points,
+          })),
+          badges,
+        };
+      }),
     });
   } catch (error) {
     return next(error);
@@ -501,9 +499,8 @@ router.post("/puzzle/complete", async (req, res, next) => {
     const puzzle = await Puzzle.findById(puzzleId).lean();
     if (!puzzle) return res.status(404).json({ error: "Puzzle not found." });
     const date = todayKey();
-    const scheduledPuzzle = await findScheduledPuzzle(date);
-    if (challengeDate !== date || !scheduledPuzzle || String(scheduledPuzzle._id) !== String(puzzle._id)) {
-      return res.status(409).json({ error: "This puzzle is no longer today's active challenge." });
+    if (challengeDate !== date) {
+      return res.status(409).json({ error: "This play session has expired. Reload the Play Zone and try again." });
     }
     if (timeSeconds > puzzle.timeLimitSeconds) {
       throw badRequest("The puzzle time limit has expired.");
