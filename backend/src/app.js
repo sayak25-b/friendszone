@@ -6,6 +6,7 @@ import { BACKEND_ROOT } from "./config/loadEnv.js";
 import authRoutes from "./routes/auth.js";
 import contentRoutes from "./routes/content.js";
 import playZoneRoutes from "./routes/playZone.js";
+import escapeRoomRoutes from "./routes/escapeRoom.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -23,6 +24,7 @@ app.get("/api/health", (req, res) => {
 });
 app.use("/api/auth", authRoutes);
 app.use("/api/play-zone", playZoneRoutes);
+app.use("/api/escape-room", escapeRoomRoutes);
 app.use("/api", contentRoutes);
 app.use("/api", notFound);
 app.use(errorHandler);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Check, Clock3, Eye, EyeOff, Pencil, Plus, Shield, Trash2, X } from "lucide-react";
 import { apiAssetUrl, apiRequest } from "../lib/api";
+import EscapeRoomAdmin from "./EscapeRoomAdmin";
 
 function localDateString(date = new Date()) {
   const year = date.getFullYear();
@@ -262,6 +263,8 @@ export default function PlayZoneAdmin({ token }) {
 
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</p>}
+
+      <EscapeRoomAdmin token={token} />
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <section className={sectionClass}>
