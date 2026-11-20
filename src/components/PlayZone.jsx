@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Brain,
   Check,
@@ -12,7 +12,6 @@ import {
 import { Link } from "react-router-dom";
 import { apiRequest } from "../lib/api";
 import PicturePuzzle from "./PicturePuzzle";
-const EscapeRoom = lazy(() => import("./EscapeRoom"));
 
 const MEMBER_KEY = "friendszone-play-zone-member";
 
@@ -241,9 +240,6 @@ export default function PlayZone() {
         )}
 
         <PicturePuzzle memberId={memberId} />
-        <Suspense fallback={<div className="mb-8 rounded-3xl bg-[#101329] p-8 text-sm text-indigo-100/70">Loading the escape room…</div>}>
-          <EscapeRoom memberId={memberId} />
-        </Suspense>
 
         {loading ? (
           <div className="rounded-3xl border border-violet-100 bg-white p-8 text-center text-sm text-slate-500">
