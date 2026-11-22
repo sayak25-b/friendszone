@@ -76,7 +76,7 @@ export default function Members() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#faf8ff]">
       {/* Hero */}
-      <section className="relative overflow-hidden bg-[#171329] text-white">
+      <section className="members-hero relative overflow-hidden bg-[#171329] text-white">
         <div className="absolute -right-24 -top-32 h-96 w-96 rounded-full bg-violet-600/30 blur-[100px]" />
         <div className="absolute -bottom-32 left-1/4 h-80 w-80 rounded-full bg-pink-500/20 blur-[100px]" />
 
@@ -115,7 +115,7 @@ export default function Members() {
           </div>
 
           {/* Decorative collage */}
-          <div className="relative mx-auto h-[340px] w-full max-w-lg sm:h-[430px]">
+          <div className="members-collage relative mx-auto h-[340px] w-full max-w-lg sm:h-[430px]">
             <div className="absolute left-[8%] top-[12%] h-[65%] w-[48%] rotate-[-9deg] overflow-hidden rounded-[2rem] border-[6px] border-white/90 shadow-2xl">
               <img
                 src="/images/friendszone-gathering2.jpg"
@@ -183,8 +183,18 @@ export default function Members() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Find a friend by name or city..."
               aria-label="Search members"
-              className="w-full rounded-2xl border border-violet-100 bg-white py-4 pl-12 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+              className="w-full rounded-2xl border border-violet-100 bg-white py-4 pl-12 pr-12 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear member search"
+                className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-violet-50 hover:text-violet-700"
+              >
+                <X size={17} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -209,10 +219,11 @@ export default function Members() {
           </p>
         ) : filteredMembers.length > 0 ? (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredMembers.map((member) => (
+            {filteredMembers.map((member, index) => (
               <article
                 key={member._id}
-                className="group relative overflow-hidden rounded-[1.75rem] border border-violet-100/80 bg-white transition duration-300 hover:-translate-y-1.5 hover:border-violet-200 hover:shadow-[0_24px_60px_-25px_rgba(124,58,237,0.28)]"
+                className="member-card group relative overflow-hidden rounded-[1.75rem] border border-violet-100/80 bg-white transition duration-300 hover:-translate-y-2 hover:border-violet-200 hover:shadow-[0_28px_65px_-25px_rgba(124,58,237,0.32)]"
+                style={{ "--member-delay": `${Math.min(index * 55, 330)}ms` }}
               >
   <div className="relative m-3 mb-0 h-64 overflow-hidden rounded-[1.3rem] bg-gradient-to-br from-violet-100 to-pink-100">
   <img
