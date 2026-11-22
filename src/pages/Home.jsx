@@ -210,43 +210,18 @@ export default function Home() {
   return (
     <main>
       <ActiveWishBanner />
-      <section className="relative isolate overflow-hidden bg-gradient-to-br from-violet-50 via-white to-pink-50">
-        <div className="home-fireworks pointer-events-none absolute inset-0" aria-hidden="true">
-          <span className="home-firework home-firework-one" />
-          <span className="home-firework home-firework-two" />
-          <span className="home-firework home-firework-three" />
-        </div>
-               <div className="diwali-fireworks pointer-events-none absolute inset-0 overflow-hidden">
-  {/* Rockets */}
-  <span className="rocket rocket-one">🚀</span>
-  <span className="rocket rocket-two">🚀</span>
+      <section className="home-hero relative isolate overflow-hidden">
+        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-pink-200/30 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-violet-200/40 blur-3xl" />
 
-  {/* Crackers and sparkles */}
-  {/* <span className="cracker cracker-one">🎆</span>
-  <span className="cracker cracker-two">🎇</span> */}
-  
-  <span className="rocket rocket-two">🚀</span>
-  <span className="cracker cracker-three">✨</span>
-
-  {/* Tubri */}
-  <span className="tubri tubri-one">🎇</span>
-  <span className="tubri tubri-two">✨</span>
-
-  {/* Diya
-  <span className="diya">🪔</span> */}
-</div>
-
-        <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-72 w-72 rounded-full bg-pink-200/40 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-20 -z-10 h-72 w-72 rounded-full bg-violet-200/50 blur-3xl" />
-
-        <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2 lg:px-8 lg:py-28">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white px-4 py-2 text-sm font-bold text-violet-700 shadow-sm">
+        <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 px-5 py-16 sm:py-20 lg:grid-cols-[1fr_0.95fr] lg:px-8 lg:py-24">
+          <div className="home-reveal">
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/90 px-4 py-2 text-sm font-bold text-violet-700 shadow-sm backdrop-blur">
               <Sparkles size={16} />
-              A little home for our friendship
+              Your home for friendship
             </div>
 
-            <h1 className="mt-7 text-5xl font-black leading-tight tracking-tight text-slate-900 sm:text-6xl lg:text-7xl">
+            <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[1.02] tracking-tight text-slate-900 sm:text-6xl lg:text-[5.25rem]">
               Friendship is
               <span className="block bg-gradient-to-r from-violet-600 to-pink-500 bg-clip-text text-transparent">
                 better together.
@@ -259,30 +234,24 @@ export default function Home() {
               revisit forever.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-8 flex flex-wrap gap-3">
               <a
                 href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=dialog"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-pink-500 px-7 py-4 font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-1"
+                className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-7 py-4 font-bold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-1 hover:bg-violet-700"
               >
                 Join Our Circle <ArrowRight size={19} />
               </a>
               <Link
                 to="/memories"
-                className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-7 py-4 font-bold text-violet-700 transition hover:bg-violet-50"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-7 py-4 font-bold text-slate-800 shadow-sm transition hover:-translate-y-1 hover:border-violet-200 hover:text-violet-700"
               >
                 <Images size={19} /> Explore Memories
               </Link>
-              <Link
-                to="/play-zone"
-                className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-7 py-4 font-bold text-pink-700 transition hover:bg-pink-50"
-              >
-                <Gamepad2 size={19} /> Play Zone
-              </Link>
             </div>
 
-            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-slate-500">
+            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-500">
               <span className="flex items-center gap-2">
                 <Heart size={17} className="text-pink-500" /> Real friendships
               </span>
@@ -292,13 +261,12 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative mx-auto w-full max-w-xl">
-            <div className="absolute -inset-4 rotate-3 rounded-[2rem] bg-gradient-to-br from-violet-200 to-pink-200" />
-            <div className="relative overflow-hidden rounded-[2rem] border-8 border-white shadow-2xl">
+          <div className="home-collage relative mx-auto w-full max-w-xl">
+            <div className="home-collage-main relative overflow-hidden rounded-[2.25rem] border-[7px] border-white shadow-[0_30px_70px_rgba(76,29,149,0.20)]">
               <img
                 src="/images/friendszone-hero.jpg"
                 alt="Friends spending time together"
-                className="h-[340px] w-full object-cover sm:h-[450px]"
+                className="h-[360px] w-full object-cover sm:h-[470px]"
               />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-6 pt-20 text-white">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-pink-200">
@@ -309,7 +277,23 @@ export default function Home() {
                 </h2>
               </div>
             </div>
-            <div className="absolute -bottom-5 -left-2 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-xl sm:-left-8">
+
+            <div className="home-polaroid home-polaroid-top absolute -right-3 top-8 hidden w-36 rotate-6 rounded-xl border-[6px] border-white bg-white shadow-xl sm:block">
+              <img
+                src="/images/friendszone-gathering.jpg"
+                alt=""
+                className="h-28 w-full object-cover"
+              />
+            </div>
+            <div className="home-polaroid home-polaroid-bottom absolute -bottom-7 -left-3 hidden w-40 -rotate-6 rounded-xl border-[6px] border-white bg-white shadow-xl sm:block">
+              <img
+                src="/images/friendszone-gathering2.jpg"
+                alt=""
+                className="h-32 w-full object-cover"
+              />
+            </div>
+
+            <div className="absolute -bottom-5 left-2 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-xl sm:left-8 lg:-left-5">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-pink-100 text-pink-600">
                 <Heart fill="currentColor" size={22} />
               </span>
