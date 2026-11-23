@@ -211,37 +211,36 @@ export default function Home() {
     <main>
       <ActiveWishBanner />
       <section className="home-hero relative isolate overflow-hidden">
-        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-pink-200/30 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-violet-200/40 blur-3xl" />
+        <div className="absolute -right-20 top-16 h-72 w-72 rounded-full bg-pink-200/20 blur-3xl" />
+        <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-violet-200/30 blur-3xl" />
 
-        <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 px-5 py-16 sm:py-20 lg:grid-cols-[1fr_0.95fr] lg:px-8 lg:py-24">
+        <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-5 py-14 sm:py-18 lg:grid-cols-[1fr_0.9fr] lg:px-8 lg:py-20">
           <div className="home-reveal">
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/90 px-4 py-2 text-sm font-bold text-violet-700 shadow-sm backdrop-blur">
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-white/90 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-violet-700 shadow-sm backdrop-blur">
               <Sparkles size={16} />
-              Your home for friendship
+              A circle worth keeping
             </div>
 
-            <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[1.02] tracking-tight text-slate-900 sm:text-6xl lg:text-[5.25rem]">
-              Friendship is
-              <span className="block bg-gradient-to-r from-violet-600 to-pink-500 bg-clip-text text-transparent">
-                better together.
+            <h1 className="mt-6 max-w-3xl text-5xl font-black leading-[0.98] tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[5.5rem]">
+              Good times deserve
+              <span className="mt-2 block text-violet-600">
+                good company.
               </span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-8 text-slate-600 sm:text-lg">
-              Welcome to FriendsZone — where familiar faces, unforgettable
-              outings and little everyday moments become memories we can
-              revisit forever.
+            <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+              FriendsZone is our shared place for celebrations, inside jokes,
+              group photos and the stories that make every meetup memorable.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-wrap gap-3">
               <a
                 href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=dialog"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-7 py-4 font-bold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-1 hover:bg-violet-700"
+                className="group inline-flex items-center gap-2 rounded-full bg-violet-700 px-7 py-4 font-bold text-white shadow-[0_14px_32px_rgba(109,40,217,0.24)] transition hover:-translate-y-1 hover:bg-slate-950"
               >
-                Join Our Circle <ArrowRight size={19} />
+                Join Our Circle <ArrowRight className="transition group-hover:translate-x-1" size={19} />
               </a>
               <Link
                 to="/memories"
@@ -251,55 +250,60 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-500">
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-500">
               <span className="flex items-center gap-2">
                 <Heart size={17} className="text-pink-500" /> Real friendships
               </span>
               <span className="flex items-center gap-2">
                 <Sparkles size={17} className="text-violet-500" /> Shared stories
               </span>
+              <span className="flex items-center gap-2">
+                <Users size={17} className="text-violet-500" /> One community
+              </span>
             </div>
           </div>
 
-          <div className="home-collage relative mx-auto w-full max-w-xl">
-            <div className="home-collage-main relative overflow-hidden rounded-[2.25rem] border-[7px] border-white shadow-[0_30px_70px_rgba(76,29,149,0.20)]">
+          <div className="home-collage relative mx-auto w-full max-w-[540px] px-2 pb-5 sm:px-8 lg:px-0">
+            <div className="absolute -right-3 top-8 h-24 w-24 rotate-12 rounded-full border border-pink-200/70 bg-pink-100/60 sm:-right-5" />
+            <div className="absolute -left-4 bottom-16 h-20 w-20 -rotate-12 rounded-[1.75rem] border border-violet-200/70 bg-violet-100/60 sm:-left-8" />
+            <div className="home-collage-main relative overflow-hidden rounded-[2rem] border-[8px] border-white shadow-[0_28px_70px_rgba(76,29,149,0.22)]">
               <img
                 src="/images/friendszone-hero.jpg"
                 alt="Friends spending time together"
-                className="h-[360px] w-full object-cover sm:h-[470px]"
+                className="h-[350px] w-full object-cover sm:h-[470px]"
               />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-6 pt-20 text-white">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-pink-200">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent px-6 pb-7 pt-24 text-white">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-pink-200">
                   Together, always
                 </p>
-                <h2 className="mt-2 text-2xl font-black">
-                  Collect moments, not things.
+                <h2 className="mt-2 text-xl font-black sm:text-2xl">
+                  More laughs. More stories. More us.
                 </h2>
               </div>
             </div>
 
-            <div className="home-polaroid home-polaroid-top absolute -right-3 top-8 hidden w-36 rotate-6 rounded-xl border-[6px] border-white bg-white shadow-xl sm:block">
+            <div className="home-polaroid home-polaroid-top absolute -right-1 top-10 hidden w-32 rotate-6 rounded-xl border-[5px] border-white bg-white shadow-xl sm:block">
               <img
                 src="/images/friendszone-gathering.jpg"
+                alt=""
+                className="h-[100px] w-full object-cover"
+              />
+            </div>
+            <div className="home-polaroid home-polaroid-bottom absolute -bottom-1 -left-1 hidden w-36 -rotate-6 rounded-xl border-[5px] border-white bg-white shadow-xl sm:block">
+              <img
+                src="/images/friendszone-gathering2.jpg"
                 alt=""
                 className="h-28 w-full object-cover"
               />
             </div>
-            <div className="home-polaroid home-polaroid-bottom absolute -bottom-7 -left-3 hidden w-40 -rotate-6 rounded-xl border-[6px] border-white bg-white shadow-xl sm:block">
-              <img
-                src="/images/friendszone-gathering2.jpg"
-                alt=""
-                className="h-32 w-full object-cover"
-              />
-            </div>
 
-            <div className="absolute -bottom-5 left-2 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-xl sm:left-8 lg:-left-5">
+            <div className="absolute bottom-0 right-2 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/95 p-3.5 shadow-xl backdrop-blur sm:right-4 lg:-right-6">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-pink-100 text-pink-600">
                 <Heart fill="currentColor" size={22} />
               </span>
               <div>
-                <p className="font-extrabold text-slate-900">Made with love</p>
-                <p className="text-xs text-slate-500">For friends, by friends</p>
+                <p className="text-sm font-extrabold text-slate-900">Made with love</p>
+                <p className="mt-0.5 text-xs text-slate-500">For friends, by friends</p>
               </div>
             </div>
           </div>
@@ -307,29 +311,48 @@ export default function Home() {
       </section>
 
       <MemoryCarousel />
-      <section className="bg-gradient-to-r from-violet-600 to-pink-500 py-16 text-white sm:py-20">
-        <div className="mx-auto max-w-5xl px-5 text-center">
-          <Heart className="mx-auto" size={36} />
-          <h2 className="mt-5 text-3xl font-black sm:text-4xl">
-            Our story has room for you, too.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl leading-7 text-white/85">
-            Want to become a part of FriendsZone? Fill in the registration
-            form. Once your details are reviewed, we'll add approved members
-            to our community page.
-          </p>
-          <a
-            href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=dialog"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 font-extrabold text-violet-700 transition hover:bg-pink-50"
-          >
-            Register to Join <ArrowRight size={19} />
-          </a>
+      <section className="px-5 py-14 sm:py-16">
+        <div className="relative mx-auto overflow-hidden rounded-[2.25rem] bg-slate-950 px-6 py-12 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:px-12 sm:py-14 lg:max-w-7xl">
+          <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-violet-500/25 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-pink-500/20 blur-3xl" />
+          <div className="relative z-10 mx-auto max-w-3xl text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-pink-300">
+              <Heart fill="currentColor" size={27} />
+            </span>
+            <h2 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">
+              Our story has room for you, too.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-300">
+              Submit your details to join the circle. Approved members are
+              added to our community and invited into the next shared moment.
+            </p>
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSdwhTzwyq6_5R1Cd5PeSGq0JOvvScwUCDVuCOAUpCTxBbJPUQ/viewform?usp=dialog"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 font-extrabold text-violet-700 transition hover:-translate-y-1 hover:bg-pink-50"
+            >
+              Register to Join <ArrowRight size={19} />
+            </a>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:grid-cols-2 lg:grid-cols-4 lg:px-8 ">
+      <section className="mx-auto max-w-7xl px-5 pb-16 pt-2 lg:px-8">
+        <div className="mb-7 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-violet-600">
+              Pick a place
+            </p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+              Explore FriendsZone
+            </h2>
+          </div>
+          <p className="max-w-sm text-sm leading-6 text-slate-500 sm:text-right">
+            Everything we share, gathered in one friendly corner.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
             icon: <Gamepad2 size={24} />,
@@ -361,18 +384,19 @@ export default function Home() {
             to={item.link}
             className="rounded-3xl border border-violet-100 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
           >
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
               {item.icon}
             </span>
-            <h3 className="mt-5 text-xl font-extrabold text-slate-900">
+            <h3 className="mt-6 text-xl font-extrabold text-slate-900">
               {item.title}
             </h3>
             <p className="mt-2 leading-7 text-slate-500">{item.description}</p>
-            <span className="mt-5 inline-flex items-center gap-2 font-bold text-violet-700">
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-violet-700">
               Explore <ArrowRight size={17} />
             </span>
           </Link>
         ))}
+        </div>
       </section>
     </main>
   );
