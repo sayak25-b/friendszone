@@ -6,6 +6,7 @@ import multer from "multer";
 import cloudinary from "../config/cloudinary.js";
 import Award from "../models/Award.js";
 import AwardVote from "../models/AwardVote.js";
+import Announcement from "../models/Announcement.js";
 import Memory from "../models/Memory.js";
 import Member from "../models/Member.js";
 import Wish from "../models/Wish.js";
@@ -114,6 +115,55 @@ function wishInput(body) {
   for (const field of ["backgroundColor", "accentColor"]) {
     if (typeof input[field] !== "string" || !/^#[0-9a-fA-F]{6}$/.test(input[field])) {
       const error = new Error("Choose valid theme colors.");
+      error.status = 400;
+      throw error;
+    }
+  }
+  for (const field of ["publishAt", "expiresAt"]) {
+    const date = new Date(input[field]);
+    if (!input[field] || Number.isNaN(date.getTime())) {
+      const error = new Error(`Choose a valid ${field === "publishAt" ? "publication" : "expiry"} date and time.`);
+      error.status = 400;
+      throw error;
+    }
+    input[field] = date;
+  }
+  if (input.expiresAt <= input.publishAt) {
+    const error = new Error("The expiry date must be after the publication date.");
+    error.status = 400;
+    throw error;
+  }
+  if (input.isActive !== undefined && typeof input.isActive !== "boolean") {
+    const error = new Error("Active status must be true or false.");
+    error.status = 400;
+    throw error;
+  }
+  return input;
+}
+
+function announcementInput(body) {
+  const input = recordInput(body, [
+    "title",
+    "message",
+    "linkLabel",
+    "linkUrl",
+    "publishAt",
+    "expiresAt",
+    "isActive",
+  ]);
+  if (typeof input.title !== "string" || !input.title.trim()) {
+    const error = new Error("Announcement title is required.");
+    error.status = 400;
+    throw error;
+  }
+  if (typeof input.message !== "string" || !input.message.trim()) {
+    const error = new Error("Announcement message is required.");
+    error.status = 400;
+    throw error;
+  }
+  if (input.linkUrl) {
+    if (typeof input.linkUrl !== "string" || !isHttpUrl(input.linkUrl)) {
+      const error = new Error("Enter a valid announcement link URL.");
       error.status = 400;
       throw error;
     }
@@ -354,6 +404,23 @@ router.get("/wishes/active", async (req, res, next) => {
       .lean();
     res.set("Cache-Control", "no-store");
     return res.json(wish ? [wish] : []);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/announcements/latest", async (req, res, next) => {
+  try {
+    const now = new Date();
+    const announcement = await Announcement.findOne({
+      isActive: true,
+      publishAt: { $lte: now },
+      expiresAt: { $gt: now },
+    })
+      .sort({ publishAt: -1, createdAt: -1 })
+      .lean();
+    res.set("Cache-Control", "no-store");
+    return res.json(announcement || null);
   } catch (error) {
     return next(error);
   }
@@ -752,6 +819,56 @@ router.get("/media/:id", async (req, res, next) => {
 });
 
 router.use("/admin", requireAdmin);
+
+router.get("/admin/announcements", async (req, res, next) => {
+  try {
+    const announcements = await Announcement.find()
+      .sort({ publishAt: -1, createdAt: -1 })
+      .lean();
+    return res.json(announcements);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/admin/announcements", async (req, res, next) => {
+  try {
+    const announcement = await Announcement.create(announcementInput(req.body));
+    return res.status(201).json(announcement);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put("/admin/announcements/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Announcement not found." });
+    }
+    const announcement = await Announcement.findByIdAndUpdate(
+      req.params.id,
+      announcementInput(req.body),
+      { new: true, runValidators: true, overwrite: true }
+    );
+    if (!announcement) return res.status(404).json({ error: "Announcement not found." });
+    return res.json(announcement);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/admin/announcements/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Announcement not found." });
+    }
+    const announcement = await Announcement.findByIdAndDelete(req.params.id);
+    if (!announcement) return res.status(404).json({ error: "Announcement not found." });
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get("/admin/wishes", async (req, res, next) => {
   try {

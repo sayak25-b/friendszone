@@ -11,6 +11,7 @@ import {
   Users,
   Sparkles,
   Gamepad2,
+  Megaphone,
 } from "lucide-react";
 import useApiData from "../hooks/useApiData";
 import { apiAssetUrl, apiRequest } from "../lib/api";
@@ -58,6 +59,85 @@ function ActiveWishBanner() {
   }
 
   return <WishBanner wish={wish} onClose={dismiss} />;
+}
+
+function LatestAnnouncement() {
+  const [announcement, setAnnouncement] = useState(null);
+  const [dismissedId, setDismissedId] = useState(
+    () => window.sessionStorage.getItem("friendszone-dismissed-announcement") || ""
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function refreshAnnouncement() {
+      try {
+        const result = await apiRequest("/announcements/latest", { signal: controller.signal });
+        setAnnouncement(result);
+      } catch {
+        if (!controller.signal.aborted) setAnnouncement(null);
+      }
+    }
+    refreshAnnouncement();
+    const timer = window.setInterval(refreshAnnouncement, 60000);
+    return () => {
+      window.clearInterval(timer);
+      controller.abort();
+    };
+  }, []);
+
+  if (!announcement || dismissedId === announcement._id) return null;
+
+  function dismiss() {
+    window.sessionStorage.setItem("friendszone-dismissed-announcement", announcement._id);
+    setDismissedId(announcement._id);
+  }
+
+  const hasLink = Boolean(announcement.linkUrl);
+  const linkIsExternal = hasLink && /^https?:\/\//i.test(announcement.linkUrl);
+
+  return (
+    <section className="border-b border-violet-100 bg-violet-50/80" aria-label="Latest announcement">
+      <div className="mx-auto flex max-w-7xl items-start gap-3 px-5 py-4 sm:items-center sm:px-6 lg:px-8">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white sm:mt-0">
+          <Megaphone size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-600">Latest announcement</p>
+          <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
+            <h2 className="font-black text-slate-900">{announcement.title}</h2>
+            <p className="text-sm leading-6 text-slate-600">{announcement.message}</p>
+          </div>
+        </div>
+        {hasLink && (
+          linkIsExternal ? (
+            <a
+              href={announcement.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden shrink-0 items-center gap-1 rounded-full border border-violet-200 bg-white px-4 py-2 text-sm font-bold text-violet-700 hover:border-violet-300 sm:inline-flex"
+            >
+              {announcement.linkLabel || "View"} <ArrowRight size={16} />
+            </a>
+          ) : (
+            <Link
+              to={announcement.linkUrl}
+              className="hidden shrink-0 items-center gap-1 rounded-full border border-violet-200 bg-white px-4 py-2 text-sm font-bold text-violet-700 hover:border-violet-300 sm:inline-flex"
+            >
+              {announcement.linkLabel || "View"} <ArrowRight size={16} />
+            </Link>
+          )
+        )}
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Dismiss announcement"
+          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-white hover:text-slate-700"
+        >
+          ×
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function MemoryCarousel() {
@@ -210,6 +290,7 @@ export default function Home() {
   return (
     <main>
       <ActiveWishBanner />
+      <LatestAnnouncement />
       <section className="home-hero relative isolate overflow-hidden">
         <div className="absolute -right-20 top-16 h-72 w-72 rounded-full bg-pink-200/20 blur-3xl" />
         <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-violet-200/30 blur-3xl" />
