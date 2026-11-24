@@ -324,6 +324,12 @@ export default function Home() {
                 Join Our Circle <ArrowRight className="transition group-hover:translate-x-1" size={19} />
               </a>
               <Link
+                to="/play-zone"
+                className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-7 py-4 font-bold text-violet-700 shadow-sm transition hover:-translate-y-1 hover:border-violet-300 hover:bg-violet-100"
+              >
+                <Gamepad2 size={19} /> Play Zone
+              </Link>
+              <Link
                 to="/memories"
                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-7 py-4 font-bold text-slate-800 shadow-sm transition hover:-translate-y-1 hover:border-violet-200 hover:text-violet-700"
               >
