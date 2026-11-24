@@ -233,7 +233,9 @@ export default function MyProfile() {
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-violet-600">FriendsZone member</p>
-            <h1 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">My Profile</h1>
+            <h1 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
+              {loading ? "My Profile" : `Welcome back, ${form.name}!`}
+            </h1>
             <p className="mt-2 text-slate-500">Share a little more about yourself with your friends.</p>
           </div>
           <button type="button" onClick={signOut} className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white">
